@@ -387,3 +387,14 @@ extraction should be redone against the new charcoal design when it lands).
   Until these are set, the sweep no-ops and the dispatcher reports
   config_error — no crashes, no partial sends.
 - Tests: 90/90 green (71 existing + 19 new in tests/test_fetch_listings.js).
+
+## 2026-09-24 — privacy gate change: edge function REMOVED
+- The edge-function Basic Auth gate (netlify/edge-functions/gate.js) was
+  removed. Reason: the owner enabled Netlify's built-in site password
+  protection in the dashboard (requests now get Netlify's own 401 "Login
+  Redirect" to app.netlify.com/edge-access). Keeping the edge gate would
+  have double-locked the site: it fails closed when SITE_PASSWORD is
+  unset, so even visitors authenticated through Netlify's login would get
+  401. Privacy is now solely the dashboard password protection — no
+  SITE_PASSWORD env var needed. Verified live: / and /find.html return
+  Netlify's 401 login page.
