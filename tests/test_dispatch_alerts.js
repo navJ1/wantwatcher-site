@@ -320,6 +320,50 @@ describe("dispatch-alerts", () => {
     assert.equal(body.error, "run_error");
     assert.equal(world.outbox.length, 0);
   });
+
+  it("garbage price + cap -> no alert and no dedupe row", async () => {
+    const listings = baseListings().concat([
+      {
+        source: "ebay", source_id: "e8", title: "iPod classic 160GB thin",
+        price_cad: "contact", url: "https://ebay.ca/itm/e8", image: null,
+        location: null, posted_at: T1, niche: "ipod", created_at: T1,
+      },
+    ]);
+    const { world, fetchImpl, loadListings } = makeWorld({
+      searches: baseSearches(),
+      listings,
+      runs: [{ ran_at: T0, ok: true }],
+    });
+    const res = await dispatchAlerts({ fetchImpl, now: NOW, loadListings });
+    const body = bodyOf(res);
+    assert.equal(body.ok, true);
+    // s1 has max_price_cad 250: the unparseable price must not match it.
+    assert.ok(!world.alerts.has("s1|ebay|e8"));
+    assert.ok(!world.outbox.some((e) => /160GB thin/.test(e.subject)));
+  });
+
+  it("garbage price + no cap -> email says 'price not listed', never C$NaN", async () => {
+    const listings = baseListings().concat([
+      {
+        source: "ebay", source_id: "e7", title: "LEGO Technic crane",
+        price_cad: "make an offer", url: "https://ebay.ca/itm/e7",
+        image: null, location: null, posted_at: T1, niche: "lego",
+        created_at: T1,
+      },
+    ]);
+    const { world, fetchImpl, loadListings } = makeWorld({
+      searches: baseSearches(),
+      listings,
+      runs: [{ ran_at: T0, ok: true }],
+    });
+    const res = await dispatchAlerts({ fetchImpl, now: NOW, loadListings });
+    const body = bodyOf(res);
+    assert.equal(body.ok, true);
+    const mail = world.outbox.find((e) => /Technic/.test(e.subject));
+    assert.ok(mail, "expected an alert email for the garbage-priced listing");
+    assert.match(mail.html, /price not listed/);
+    assert.doesNotMatch(mail.html, /NaN/);
+  });
 });
 
 describe("matchesSearch", () => {
@@ -391,6 +435,51 @@ describe("matchesSearch", () => {
     assert.equal(
       matchesSearch(search({ niche: "does-not-exist" }), listing({ niche: null })),
       true
+    );
+  });
+  it("unparseable prices never satisfy a cap", () => {
+    // NaN > cap is false, so without an explicit finite check these
+    // garbage prices would silently match every cap.
+    for (const bad of [
+      "contact",
+      "N/A",
+      "",
+      "   ",
+      "$",
+      NaN,
+      Infinity,
+      -Infinity,
+    ]) {
+      assert.equal(
+        matchesSearch(
+          search({ max_price_cad: 250 }),
+          listing({ price_cad: bad })
+        ),
+        false,
+        `price ${JSON.stringify(String(bad))} must not pass the cap`
+      );
+    }
+  });
+  it("unparseable price with no cap still matches", () => {
+    assert.equal(
+      matchesSearch(search(), listing({ price_cad: "make an offer" })),
+      true
+    );
+  });
+  it("numeric-string prices still work with caps", () => {
+    assert.equal(
+      matchesSearch(
+        search({ max_price_cad: 250 }),
+        listing({ price_cad: "199.99" })
+      ),
+      true
+    );
+    assert.equal(
+      matchesSearch(
+        search({ max_price_cad: 100 }),
+        listing({ price_cad: "199.99" })
+      ),
+      false
     );
   });
 });
