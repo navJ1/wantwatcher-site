@@ -17,6 +17,14 @@
 
 const DISCORD_API = "https://discord.com/api/v10";
 
+function fail(statusCode, code, detail) {
+  return {
+    statusCode,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ok: false, error: code, detail }),
+  };
+}
+
 async function defaultTrialStore() {
   const { getStore } = await import("@netlify/blobs");
   return getStore("trials");
@@ -45,20 +53,23 @@ async function expireTrials(deps = {}) {
   const { DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, DISCORD_TRIAL_ROLE_ID } =
     process.env;
   if (!DISCORD_BOT_TOKEN || !DISCORD_GUILD_ID || !DISCORD_TRIAL_ROLE_ID) {
-    return {
-      statusCode: 500,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        ok: false,
-        error: "config_error",
-        detail:
-          "Missing DISCORD_BOT_TOKEN / DISCORD_GUILD_ID / DISCORD_TRIAL_ROLE_ID",
-      }),
-    };
+    return fail(
+      500,
+      "config_error",
+      "Missing DISCORD_BOT_TOKEN / DISCORD_GUILD_ID / DISCORD_TRIAL_ROLE_ID"
+    );
   }
 
-  const store = await getTrialStore();
-  const listing = await store.list({ prefix: "trial-" });
+  let store;
+  let listing;
+  try {
+    store = await getTrialStore();
+    listing = await store.list({ prefix: "trial-" });
+  } catch (e) {
+    // Blobs unavailable — fail cleanly so the scheduled run logs a JSON
+    // error instead of an unhandled exception; next run retries.
+    return fail(500, "store_error", `Trial store unavailable: ${e.message}`);
+  }
   const keys = (listing.blobs || []).map((b) => b.key);
 
   const errors = [];
@@ -73,8 +84,16 @@ async function expireTrials(deps = {}) {
       continue;
     }
     if (!record || !record.user_id || !record.expires_at) {
-      errors.push({ key, error: "malformed record; deleting" });
-      await store.delete(key).catch(() => {});
+      try {
+        await store.delete(key);
+        errors.push({ key, error: "malformed record; deleted" });
+      } catch (delErr) {
+        // Leave it for the next run, but say so loudly.
+        errors.push({
+          key,
+          error: `malformed record; delete failed: ${delErr.message}`,
+        });
+      }
       continue;
     }
     if (new Date(record.expires_at) > now) continue; // still active
