@@ -256,3 +256,28 @@ Notes:
 - Reverted the navy/gold redesign (e79dd61): owner found it empty/generic (dead navy space, muddy buttons, faint icons).
 - Live site restored to the pre-redesign build (5c12c69 + ENGINE_PLAN.md removal).
 - New charcoal/glass aesthetic being built in isolated worktree branch `redesign/charcoal-glass`; not merged to master.
+
+## 2026-09-24 — overnight hardening merges (6 of 8 branches)
+Merged to master after review; `npm test` 71/71 green. Held back:
+`overnight/kijiji-parser-tests` (new watcher/kijiji.py would duplicate the
+goal-internal kijiji_adapter.py — canonical-parser decision needed) and
+`overnight/feed-render-tests` (built against the scrapped navy redesign;
+extraction should be redone against the new charcoal design when it lands).
+- expire-trials-paginate: blob listing now paginated (trials beyond page 1
+  actually expire); unparseable expires_at = malformed (deleted + loud error,
+  Discord role untouched).
+- link-discord-paid-tests: 5 tests covering the paid fulfillment path
+  (happy path, already-pro 409, not-in-server 404, Discord errors). Test-only.
+- link-discord-exact-match: guild member resolution now requires an exact
+  case-insensitive username match; fuzzy fallback removed (was granting roles
+  to the wrong user on typo'd names). 404 message tells users to enter their
+  exact username, not a server nickname.
+- dispatcher-tests: 16 tests (enabled flag, watermark, exact-once dedupe,
+  Resend failure, malformed rows, marketplace/niche filtering) + 2 small
+  hardenings (client-side enabled filter, NaN cap guard).
+- dispatch-price-hardening: new asPrice() helper — unparseable listing prices
+  ("contact", "N/A", NaN...) can no longer satisfy a max-price cap; priceLabel
+  renders "price not listed" instead of C$NaN in alert emails.
+- dispatcher-pagination: defaultLoadListings now drains the (since, cutoff]
+  window with keyset pagination (10-page/5,000-row budget); runs report
+  truncated:true instead of silently dropping listings past 500.
