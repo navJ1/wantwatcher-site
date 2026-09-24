@@ -3,6 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d7773'/%3E%3Ccircle cx='14' cy='14' r='7' fill='none' stroke='white' stroke-width='3'/%3E%3Cpath d='M19.5 19.5L27 27' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
+<link rel="canonical" href="https://wantwatcher.com/find.html" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="WantWatcher" />
+<meta property="og:url" content="https://wantwatcher.com/find.html" />
+<meta property="og:title" content="Why this is a good deal · WantWatcher" />
+<meta property="og:description" content="The watcher's evidence for a verified marketplace find: model checks, price math, and what to confirm before you buy." />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Why this is a good deal · WantWatcher" />
+<meta name="twitter:description" content="The evidence behind a verified collector find — model checks, price math, before-you-buy checklist." />
 <title>Find detail · WantWatcher</title>
 <meta name="description" content="Why the watcher flagged this marketplace find — the evidence, the price math, and what to check before you buy.">
 <style>
@@ -11,7 +21,7 @@
     --page: #f3f4ee; --surface: #ffffff; --surface-2: #e8ece5;
     --ink: #132222; --muted: #526160; --line: #c8d0c8;
     --teal: #0d7773; --teal-deep: #0c3435; --teal-soft: #d6ebe6;
-    --orange: #ef8f2e; --orange-soft: #ffe4bd; --cream: #fff9ec;
+    --orange: #ef8f2e; --orange-ink: #a85a08; --orange-soft: #ffe4bd; --cream: #fff9ec;
     --radius-lg: 28px; --radius-md: 18px; --radius-sm: 10px;
   }
   @media (prefers-color-scheme: dark) {
@@ -19,11 +29,12 @@
       --page: #0c1717; --surface: #142323; --surface-2: #1d2d2d;
       --ink: #f4f4ea; --muted: #b3c2bf; --line: #344948;
       --teal: #50c0b4; --teal-deep: #082e2f; --teal-soft: #173b3a;
-      --orange: #f0a04e; --orange-soft: #4a3420;
+      --orange: #f0a04e; --orange-ink: #f0a04e; --orange-soft: #4a3420;
       --cream: #1c2a1a;
     }
   }
   * { box-sizing: border-box; }
+  :focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; border-radius: 4px; }
   body { margin: 0; background: var(--page); color: var(--ink);
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     line-height: 1.55; }
@@ -40,7 +51,7 @@
   .badge { display: inline-block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
     padding: 5px 12px; border-radius: 999px; margin-bottom: 12px; }
   .badge.verified { color: var(--teal); border: 1px solid var(--teal); }
-  .badge.price_alert { color: var(--orange); border: 1px solid var(--orange); }
+  .badge.price_alert { color: var(--orange-ink); border: 1px solid var(--orange); }
   h1 { margin: 0 0 10px; font-size: clamp(1.4rem, 4vw, 2rem); line-height: 1.25; }
   .price-row { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 6px 0 4px; }
   .price { font-size: 2rem; font-weight: 800; }
@@ -120,7 +131,7 @@
         ? '<span class="badge verified">Verified find</span>'
         : '<span class="badge price_alert">Price alert</span>';
       var img = item.image
-        ? '<img class="hero" src="' + esc(item.image) + '" alt="" loading="eager" onerror="this.remove()">'
+        ? '<img class="hero" src="' + esc(item.image) + '" alt="' + esc(item.title) + '" loading="eager" onerror="this.remove()">'
         : "";
       var why = item.why || [];
       var whyHtml = why.length
