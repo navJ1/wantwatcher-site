@@ -15,6 +15,7 @@ const assert = require("node:assert/strict");
 const {
   dispatchAlerts,
   matchesSearch,
+  defaultLoadListings,
 } = require("../netlify/functions/dispatch-alerts.js");
 
 // ---------------------------------------------------------------- fixtures
@@ -121,6 +122,9 @@ function makeWorld(state = {}) {
       }
       return fakeResp(201, []);
     }
+    if (u.pathname === "/rest/v1/listings" && method === "GET") {
+      return fakeResp(200, fakeListingsPage(w.listings, url));
+    }
     throw new Error(`unexpected request: ${method} ${url}`);
   }
 
@@ -136,6 +140,74 @@ function makeWorld(state = {}) {
 
 function bodyOf(res) {
   return JSON.parse(res.body);
+}
+
+/**
+ * Minimal PostgREST stand-in for the `listings` table, honoring the query
+ * shape defaultLoadListings produces: created_at=gt.<iso> on the first
+ * page, the composite `or` keyset predicate on later pages, ascending
+ * (created_at, source, source_id) order, and limit.
+ */
+function fakeListingsPage(rows, url) {
+  const p = new URL(url).searchParams;
+  let filtered = rows.slice();
+  const orExpr = p.get("or");
+  if (orExpr) {
+    // (created_at.gt.C,and(created_at.eq.C,or(source.gt.S,and(source.eq.S,source_id.gt.SID))))
+    const c = orExpr.match(/created_at\.gt\.([^,)]+)/)[1];
+    const s = orExpr.match(/source\.gt\.([^,)]+)/)[1];
+    const sid = orExpr.match(/source_id\.gt\.([^,)]+)/)[1];
+    filtered = filtered.filter(
+      (r) =>
+        r.created_at > c ||
+        (r.created_at === c &&
+          (r.source > s || (r.source === s && r.source_id > sid)))
+    );
+  } else {
+    const since = (p.get("created_at") || "").replace(/^gt\./, "");
+    filtered = filtered.filter((r) => r.created_at > since);
+  }
+  filtered.sort((a, b) =>
+    a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1
+    : a.source < b.source ? -1 : a.source > b.source ? 1
+    : a.source_id < b.source_id ? -1 : a.source_id > b.source_id ? 1 : 0
+  );
+  return filtered.slice(0, Number(p.get("limit") || 500));
+}
+
+/** N synthetic listings, `stepMs` apart from base, all within the window. */
+function manyListings(n, base = "2026-09-24T01:00:00.000Z", stepMs = 1000) {
+  const t0 = Date.parse(base);
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    rows.push({
+      source: "ebay",
+      source_id: `m${i}`,
+      title: `LEGO set number ${i}`,
+      price_cad: 10,
+      url: `https://ebay.ca/itm/m${i}`,
+      image: null,
+      location: null,
+      posted_at: new Date(t0 + i * stepMs).toISOString(),
+      niche: null,
+      created_at: new Date(t0 + i * stepMs).toISOString(),
+    });
+  }
+  return rows;
+}
+
+/** fetchImpl serving only the listings endpoint (for defaultLoadListings). */
+function listingsFetch(rows) {
+  return async (url, opts = {}) => {
+    const u = new URL(url);
+    assert.equal(u.pathname, "/rest/v1/listings");
+    return {
+      status: 200,
+      ok: true,
+      json: async () => fakeListingsPage(rows, url),
+      text: async () => "",
+    };
+  };
 }
 
 // ---------------------------------------------------------------- env setup
@@ -343,5 +415,111 @@ describe("matchesSearch", () => {
       matchesSearch(search({ niche: "ipod" }), listing({ niche: null })),
       true
     );
+  });
+});
+
+describe("defaultLoadListings pagination", () => {
+  const BASE = "https://test.supabase.co";
+  const KEY = "test-key";
+  const SINCE = "2026-09-24T00:00:00.000Z";
+  const CUTOFF = "2026-09-24T02:00:00.000Z"; // == NOW in the suite
+
+  function keys(rows) {
+    return rows.map((r) => `${r.source}|${r.source_id}`);
+  }
+
+  it("drains multiple full pages: 1200 rows, none lost, none duplicated", async () => {
+    const rows = await defaultLoadListings(
+      listingsFetch(manyListings(1200)),
+      BASE,
+      KEY,
+      SINCE,
+      CUTOFF
+    );
+    assert.equal(rows.length, 1200);
+    assert.equal(new Set(keys(rows)).size, 1200);
+    assert.equal(rows.truncated, false);
+  });
+
+  it("a created_at tie straddling the 500-row page boundary is not lost", async () => {
+    const listings = manyListings(1200);
+    // Force a tie across the first page boundary: rows 498..502 share one
+    // timestamp. A timestamp-only cursor would drop the overflow half.
+    const tie = listings[498].created_at;
+    for (const i of [499, 500, 501, 502]) listings[i].created_at = tie;
+    const rows = await defaultLoadListings(
+      listingsFetch(listings),
+      BASE,
+      KEY,
+      SINCE,
+      CUTOFF
+    );
+    assert.equal(rows.length, 1200);
+    assert.equal(new Set(keys(rows)).size, 1200);
+    assert.equal(rows.truncated, false);
+  });
+
+  it("rows past the cutoff are excluded and the drain still completes", async () => {
+    const listings = manyListings(600);
+    // Push 100 rows past the cutoff.
+    for (let i = 500; i < 600; i++) {
+      listings[i].created_at = "2026-09-24T03:00:00.000Z";
+      listings[i].posted_at = "2026-09-24T03:00:00.000Z";
+    }
+    const rows = await defaultLoadListings(
+      listingsFetch(listings),
+      BASE,
+      KEY,
+      SINCE,
+      CUTOFF
+    );
+    assert.equal(rows.length, 500);
+    assert.ok(rows.every((r) => r.created_at <= CUTOFF));
+    assert.equal(rows.truncated, false);
+  });
+
+  it("empty window -> empty array, not truncated", async () => {
+    const rows = await defaultLoadListings(
+      listingsFetch([]),
+      BASE,
+      KEY,
+      SINCE,
+      CUTOFF
+    );
+    assert.deepEqual([...rows], []);
+    assert.equal(rows.truncated, false);
+  });
+
+  it("page budget exhaustion (5000+ rows) is flagged, not silent", async () => {
+    // 100ms spacing keeps all 5001 rows inside the window.
+    const rows = await defaultLoadListings(
+      listingsFetch(manyListings(5001, "2026-09-24T01:00:00.000Z", 100)),
+      BASE,
+      KEY,
+      SINCE,
+      CUTOFF
+    );
+    assert.equal(rows.length, 5000); // 10 pages x 500
+    assert.equal(new Set(keys(rows)).size, 5000);
+    assert.equal(rows.truncated, true);
+  });
+
+  it("integration: dispatchAlerts with the real loader sees all 600 listings", async () => {
+    // No injected loadListings -> the default paginated loader runs
+    // against the fake PostgREST endpoint wired into makeWorld.
+    const { world, fetchImpl } = makeWorld({
+      searches: baseSearches(),
+      listings: manyListings(600),
+      runs: [{ ran_at: T0, ok: true }],
+    });
+    const res = await dispatchAlerts({ fetchImpl, now: NOW }); // no loadListings seam
+    const body = bodyOf(res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(body.listings_seen, 600); // old code would report 500
+    assert.equal(body.matches, 600); // all match s2 ("lego", u2)
+    assert.equal(body.emails_sent, 600);
+    assert.equal(world.outbox.length, 600);
+    assert.equal(body.truncated, false);
+    assert.deepEqual(body.errors, []);
   });
 });
