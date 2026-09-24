@@ -7,7 +7,11 @@
  *      so stale listings never trigger a flood),
  *   2. loads listings with created_at in (last_cutoff, now] from the
  *      listings store (default: Supabase `listings` table; swap via
- *      deps.loadListings — the seam Task 1's fetcher targets),
+ *      deps.loadListings — the seam Task 1's fetcher targets). The default
+ *      loader drains the window with in-run keyset pagination so a busy
+ *      window (>500 new listings) is never silently cut off; if the page
+ *      budget (10 x 500) is exhausted, the run reports truncated: true.
+ *      Custom loaders just return a rows array (may set .truncated too).
  *   3. loads all saved searches (service-role key, server-side only),
  *   4. matches: keyword (any comma-separated term, case-insensitive
  *      substring of the title) AND max_price_cad cap when set (listings
@@ -21,7 +25,8 @@
  *   6. records the run in `dispatcher_runs` (best effort — a failure
  *      here is logged, not fatal).
  *
- * Returns JSON: { ok, since, listings_seen, matches, emails_sent, errors }.
+ * Returns JSON: { ok, since, listings_seen, matches, emails_sent,
+ *   truncated, errors }.
  *
  * Env vars (all server-side, Netlify dashboard only):
  *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (never in client code),
@@ -36,6 +41,10 @@
 
 const RESEND_API = "https://api.resend.com/emails";
 const MAX_LISTINGS_PER_RUN = 500;
+// Safety cap on in-run pagination: a run drains at most this many pages
+// (10 x 500 = 5,000 listings). If a window somehow exceeds it, the run
+// records truncated: true instead of silently advancing past unseen rows.
+const MAX_PAGES_PER_RUN = 10;
 // Resend's free test sender. It only delivers to the Resend account
 // owner's address until a custom domain is verified (see DEPLOY_NOTES.md).
 const FROM_FALLBACK = "WantWatcher <onboarding@resend.dev>";
@@ -210,19 +219,87 @@ async function sendEmail(fetchImpl, apiKey, email) {
   }
 }
 
-/** Default listings loader: Supabase `listings` created in (since, cutoff]. */
+/**
+ * Default listings loader: Supabase `listings` created in (since, cutoff].
+ *
+ * Drains the window with in-run keyset pagination (composite cursor on
+ * created_at, source, source_id) so a busy window is never silently
+ * truncated: the old code took only the first MAX_LISTINGS_PER_RUN rows
+ * and still advanced the watermark to `now`, permanently losing alert
+ * eligibility for every row past the cap. Pagination stops when a page
+ * is short, when a row exceeds the cutoff (rows are ordered ascending),
+ * or at MAX_PAGES_PER_RUN — the last case sets a `truncated` property on
+ * the returned array so the run can report it honestly.
+ *
+ * Same seam signature and return shape as before: (fetchImpl, base, key,
+ * sinceISO, cutoffISO) -> Promise<rows[]> (array of listing rows).
+ * `truncated` is attached as a plain property on the array, so any custom
+ * loader that returns a plain array keeps working unchanged.
+ */
 async function defaultLoadListings(fetchImpl, base, key, sinceISO, cutoffISO) {
-  return sbGet(fetchImpl, base, key, "listings", {
-    select: "source,source_id,title,price_cad,url,image,location,posted_at,niche,created_at",
-    created_at: `gt.${sinceISO}`,
-    // PostgREST ANDs repeated params; sbGet appends both.
-    order: "created_at.asc",
-    limit: String(MAX_LISTINGS_PER_RUN),
-  }).then((rows) =>
-    // Apply the upper bound client-side (keeps the query simple and the
-    // watermark exact even if PostgREST parameter ordering changes).
-    rows.filter((r) => r.created_at <= cutoffISO)
-  );
+  const all = [];
+  const seen = new Set(); // "source|source_id" — guards against any overlap
+  let cursor = null; // { created_at, source, source_id } of the last row fetched
+  let drained = false;
+
+  for (let page = 0; page < MAX_PAGES_PER_RUN; page++) {
+    const query = {
+      select:
+        "source,source_id,title,price_cad,url,image,location,posted_at,niche,created_at",
+      order: "created_at.asc,source.asc,source_id.asc",
+      limit: String(MAX_LISTINGS_PER_RUN),
+    };
+    if (cursor === null) {
+      query.created_at = `gt.${sinceISO}`;
+    } else {
+      // Keyset predicate: strictly after the cursor tuple. PostgREST `or`
+      // with nested `and`/`or` implements the composite comparison.
+      const c = cursor;
+      query.or =
+        `(created_at.gt.${c.created_at},` +
+        `and(created_at.eq.${c.created_at},` +
+        `or(source.gt.${c.source},` +
+        `and(source.eq.${c.source},source_id.gt.${c.source_id}))))`;
+    }
+
+    const rows = await sbGet(fetchImpl, base, key, "listings", query);
+    if (!Array.isArray(rows)) break; // unexpected shape: bail out honestly
+    if (rows.length === 0) {
+      drained = true; // no more rows — window fully drained
+      break;
+    }
+
+    let sawPastCutoff = false;
+    for (const r of rows) {
+      if (r.created_at > cutoffISO) {
+        // Ascending order: everything after this row is out of the window.
+        sawPastCutoff = true;
+        break;
+      }
+      const k = `${r.source}|${r.source_id}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      all.push(r);
+    }
+
+    const last = rows[rows.length - 1];
+    cursor = {
+      created_at: last.created_at,
+      source: last.source,
+      source_id: last.source_id,
+    };
+    // Short page, or the page crossed the cutoff: the window is drained.
+    if (rows.length < MAX_LISTINGS_PER_RUN || sawPastCutoff) {
+      drained = true;
+      break;
+    }
+  }
+
+  // We stopped only because the page budget ran out: more rows may exist
+  // in the window, so flag it instead of pretending the drain completed.
+  // Attached as a property so the seam's array return shape is unchanged.
+  all.truncated = !drained;
+  return all;
 }
 
 /**
@@ -296,7 +373,7 @@ async function dispatchAlerts(deps = {}) {
     }
 
     // 2 + 3. New listings and all saved searches.
-    const [listings, loadedSearches] = await Promise.all([
+    const [loadedListings, loadedSearches] = await Promise.all([
       loadListings(fetchImpl, base, SUPABASE_SERVICE_ROLE_KEY, sinceISO, cutoffISO),
       sbGet(fetchImpl, base, SUPABASE_SERVICE_ROLE_KEY, "saved_searches", {
         select: "id,user_id,keywords,niche,max_price_cad,marketplaces,enabled",
@@ -306,6 +383,10 @@ async function dispatchAlerts(deps = {}) {
     // Belt and suspenders: the query filters enabled hunts, but a disabled
     // hunt must never alert even if it slips through the loader seam.
     const searches = loadedSearches.filter((s) => s.enabled !== false);
+    // The loader returns an array of rows; the default loader additionally
+    // sets .truncated when the page budget ran out (see defaultLoadListings).
+    const listings = Array.isArray(loadedListings) ? loadedListings : [];
+    const truncated = !!loadedListings.truncated;
 
     // 4 + 5. Match, dedupe-insert, then send.
     const emailCache = {}; // user_id -> email
@@ -418,6 +499,7 @@ async function dispatchAlerts(deps = {}) {
         listings_seen: listings.length,
         matches,
         emails_sent: emailsSent,
+        truncated,
         errors,
       }),
     };
@@ -432,3 +514,4 @@ async function dispatchAlerts(deps = {}) {
 exports.handler = async (event, context) => dispatchAlerts({});
 exports.dispatchAlerts = dispatchAlerts; // exported for the test suite
 exports.matchesSearch = matchesSearch; // exported for the test suite
+exports.defaultLoadListings = defaultLoadListings; // exported for the test suite
