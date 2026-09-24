@@ -10,6 +10,14 @@
 [functions."expire-trials"]
   schedule = "@daily"
 
+# Scheduled keyword-alert dispatcher (runs every 30 minutes). Reads new
+# listings from Supabase, matches them against saved searches, and sends
+# one Resend email per new match (dedupe via alerts_sent — see
+# supabase/migrations/002_alerts.sql). No-op until SUPABASE_* and
+# RESEND_API_KEY are set.
+[functions."dispatch-alerts"]
+  schedule = "*/30 * * * *"
+
 # Netlify Forms handles the trial signup form (data-netlify="true").
 # Submissions land in the Netlify dashboard; no extra config needed.
 

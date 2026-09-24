@@ -5,6 +5,76 @@ Rule: any change to `netlify.toml`, build settings, function config, or
 hosting setup gets a dated entry here with what changed, why, and new
 environment variables required.
 
+## 2026-09-24 — Alert dispatcher (Task 3: keyword alerts)
+
+**What changed:**
+- `netlify/functions/dispatch-alerts.js` (new): scheduled function that
+  runs every 30 minutes. Each run reads the last run's cutoff from
+  Supabase `dispatcher_runs` (first run only establishes the watermark
+  and sends nothing, so stale listings never trigger a flood), loads new
+  listings from the `listings` store, loads all saved searches, and for
+  each match INSERTs into `alerts_sent` *before* sending one Resend email.
+  Insert-then-send makes re-runs idempotent: at most one missed email on
+  a crash, never a duplicate. Match = keyword (any comma-separated term,
+  case-insensitive substring of title) AND `max_price_cad` cap when set
+  (unknown-price listings never match a capped search) AND
+  `marketplaces[]` allow-list when set AND niche equality when both sides
+  set one. Recipient email comes from the Supabase Auth admin API
+  (service-role key, server-side only). Missing keys → clean
+  `config_error` exit, no sends, no crash. Plain fetch/REST, no SDKs.
+- `netlify.toml`: added `[functions."dispatch-alerts"]` with
+  `schedule = "*/30 * * * *"`. The existing `@daily` `expire-trials`
+  entry is untouched.
+- `supabase/migrations/002_alerts.sql` (new): creates `listings`
+  (unified store the fetcher engine writes to), `alerts_sent`
+  (PK on `(search_id, source, source_id)` — the dedupe ledger; depends on
+  Task 2's `saved_searches`), and `dispatcher_runs` (run watermark +
+  stats). RLS enabled with no public policies: only the service-role key
+  can touch these tables. Run after Task 2's `001` migration in the
+  Supabase SQL editor.
+- `netlify/functions/test_dispatch_alerts.js` (new): 12 unit tests —
+  fixture run sends exactly one email per new match, re-run sends zero
+  duplicates, new listing sends exactly one, first-run bootstrap,
+  missing-env clean exit, Resend-failure idempotency, Supabase-outage
+  clean exit, plus `matchesSearch` unit tests. `npm test` now runs both
+  function test files: **33/33 pass**.
+- Existing Discord broadcast webhooks untouched; per-user Discord DMs
+  remain deferred until the bot token arrives.
+
+**Why:** per-user keyword alerts are the paid utility behind the C$8/mo
+Pro tier; the curated Discord channel stays as the broadcast/marketing
+layer.
+
+**New environment variables** (Netlify dashboard → Site settings →
+Environment variables; all server-side only, never in client code):
+- `SUPABASE_URL` — e.g. `https://xyzcompany.supabase.co`
+- `SUPABASE_SERVICE_ROLE_KEY` — **secret.** Function-only; it bypasses
+  RLS. Never put it in `dashboard.html` or any client bundle (that page
+  uses the public `SUPABASE_ANON_KEY` from Task 2).
+- `RESEND_API_KEY` — from a free Resend account (100 emails/day,
+  3,000/month, no credit card).
+- `ALERT_FROM` (optional) — sender address. Defaults to Resend's test
+  sender `onboarding@resend.dev`, which **only delivers to the Resend
+  account owner's own address**. To email real users, verify
+  `wantwatcher.com` in Resend (free: add the DNS TXT records Resend shows
+  you to the domain's DNS), then set `ALERT_FROM` to e.g.
+  `WantWatcher <alerts@wantwatcher.com>`.
+
+**User steps remaining (all free, no card):**
+1. Create a Supabase project (supabase.com → New project, free tier),
+   run Task 2's `001` migration then this `002_alerts.sql` in the SQL
+   editor, and copy the project URL + `anon` key (Task 2) + 
+   `service_role` key (this task) into Netlify env vars.
+2. Create a Resend account (resend.com, free tier), copy the API key
+   into `RESEND_API_KEY`. Keep the default `ALERT_FROM` for testing;
+   verify the `wantwatcher.com` domain in Resend before emailing real
+   users (free DNS records).
+3. Redeploy (or wait for the next auto-deploy): the `*/30` schedule
+   takes effect on deploy. First scheduled run bootstraps the watermark
+   and sends nothing; alerts begin on the second run.
+4. eBay developer keys (already pending) unblock the fetcher engine
+   (Task 1), which is what populates the `listings` table this function
+   reads. Until then the dispatcher runs clean no-ops.
 ## 2026-09-24 — Saved-search dashboard (Supabase; not live until project exists)
 
 **What changed:**
