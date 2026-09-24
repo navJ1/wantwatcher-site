@@ -1,0 +1,1 @@
+{"dependencies":{"@netlify/blobs":"^11.1.0"},"description":"WantWatcher Pro fulfillment: link-discord (Stripe->Discord role grant) and expire-trials (daily trial revocation).","engines":{"node":">=18"},"name":"wantwatcher-pro-functions","private":true,"version":"1.0.0"}

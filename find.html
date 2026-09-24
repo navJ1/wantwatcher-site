@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Find detail · WantWatcher</title>
+<meta name="description" content="Why the watcher flagged this marketplace find — the evidence, the price math, and what to check before you buy.">
+<style>
+  :root {
+    color-scheme: light dark;
+    --page: #f3f4ee; --surface: #ffffff; --surface-2: #e8ece5;
+    --ink: #132222; --muted: #526160; --line: #c8d0c8;
+    --teal: #0d7773; --teal-deep: #0c3435; --teal-soft: #d6ebe6;
+    --orange: #ef8f2e; --orange-soft: #ffe4bd; --cream: #fff9ec;
+    --radius-lg: 28px; --radius-md: 18px; --radius-sm: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0c1717; --surface: #142323; --surface-2: #1d2d2d;
+      --ink: #f4f4ea; --muted: #b3c2bf; --line: #344948;
+      --teal: #50c0b4; --teal-deep: #082e2f; --teal-soft: #173b3a;
+      --orange: #f0a04e; --orange-soft: #4a3420;
+      --cream: #1c2a1a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+  header.site { padding: 22px 0; }
+  header.site a.brand { font-weight: 800; font-size: 1.15rem; color: var(--ink); text-decoration: none; }
+  header.site a.brand em { color: var(--teal); font-style: normal; }
+  main { padding: 10px 0 80px; }
+  .back { display: inline-block; margin: 6px 0 22px; color: var(--teal); font-weight: 600; text-decoration: none; }
+  .back:hover { text-decoration: underline; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+  .card img.hero { width: 100%; max-height: 380px; object-fit: cover; display: block; background: var(--surface-2); }
+  .card-body { padding: 28px; }
+  .badge { display: inline-block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 5px 12px; border-radius: 999px; margin-bottom: 12px; }
+  .badge.verified { color: var(--teal); border: 1px solid var(--teal); }
+  .badge.price_alert { color: var(--orange); border: 1px solid var(--orange); }
+  h1 { margin: 0 0 10px; font-size: clamp(1.4rem, 4vw, 2rem); line-height: 1.25; }
+  .price-row { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 6px 0 4px; }
+  .price { font-size: 2rem; font-weight: 800; }
+  .meta { color: var(--muted); font-size: 0.92rem; margin: 0 0 4px; }
+  .why { margin: 26px 0 0; padding: 20px 22px; background: var(--teal-soft); border-radius: var(--radius-md); }
+  .why h2, .caveats h2 { margin: 0 0 10px; font-size: 1.05rem; }
+  .why ul { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+  .why li::marker { content: "✓ "; color: var(--teal); font-weight: 800; }
+  .caveats { margin: 18px 0 0; padding: 20px 22px; background: var(--surface-2); border-radius: var(--radius-md); }
+  .caveats ul { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--muted); font-size: 0.95rem; }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
+  .btn { display: inline-block; padding: 13px 26px; border-radius: 999px; font-weight: 700; text-decoration: none; }
+  .btn-primary { background: var(--orange); color: #1d1408; }
+  .btn-ghost { border: 1px solid var(--line); color: var(--ink); }
+  .loading, .missing { text-align: center; color: var(--muted); padding: 70px 20px; }
+  .missing h1 { margin-bottom: 8px; }
+  footer { border-top: 1px solid var(--line); padding: 26px 0 40px; color: var(--muted); font-size: 0.9rem; }
+  footer a { color: var(--teal); }
+</style>
+</head>
+<body>
+  <header class="site"><div class="wrap"><a class="brand" href="/">Want<em>Watcher</em></a></div></header>
+  <main><div class="wrap" id="app">
+    <p class="loading">Loading the find…</p>
+  </div></main>
+  <footer><div class="wrap">WantWatcher — collector alerts for better finds, not more noise. Verification means the listing passed the watcher&apos;s model, revision, photo, condition and price checks — always confirm the details with the seller before paying.</div></footer>
+
+<script>
+(function () {
+  "use strict";
+  var FEED_URL = "https://raw.githubusercontent.com/navJ1/wantwatcher-feed/main/feed.json";
+  var app = document.getElementById("app");
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function ago(iso) {
+    var t = new Date(iso).getTime();
+    if (isNaN(t)) return "";
+    var m = Math.max(0, Math.round((Date.now() - t) / 60000));
+    if (m < 1) return "just now";
+    if (m < 60) return m + "m ago";
+    var h = Math.round(m / 60);
+    if (h < 48) return h + "h ago";
+    return Math.round(h / 24) + "d ago";
+  }
+  function money(item) {
+    try {
+      return new Intl.NumberFormat("en-CA", { style: "currency", currency: item.currency || "CAD" }).format(item.price);
+    } catch (e) { return "$" + item.price; }
+  }
+  function missing() {
+    app.innerHTML =
+      '<a class="back" href="/#live-finds">&larr; All finds</a>' +
+      '<div class="missing"><h1>This find has moved on.</h1>' +
+      "<p>It may have sold, expired, or aged out of the feed. The watcher posts new finds as they verify.</p>" +
+      '<p><a class="btn btn-ghost" href="/#live-finds">See live finds</a></p></div>';
+  }
+
+  var id = null;
+  try { id = new URLSearchParams(window.location.search).get("id"); } catch (e) {}
+  if (!id) { missing(); return; }
+
+  fetch(FEED_URL + "?t=" + Date.now(), { cache: "no-store" })
+    .then(function (r) { if (!r.ok) throw new Error("feed " + r.status); return r.json(); })
+    .then(function (data) {
+      var items = (data && data.items) || [];
+      var item = null;
+      for (var i = 0; i < items.length; i++) {
+        if (String(items[i].id) === String(id)) { item = items[i]; break; }
+      }
+      if (!item) { missing(); return; }
+
+      var badge = item.badge === "verified"
+        ? '<span class="badge verified">Verified find</span>'
+        : '<span class="badge price_alert">Price alert</span>';
+      var img = item.image
+        ? '<img class="hero" src="' + esc(item.image) + '" alt="" loading="eager" onerror="this.remove()">'
+        : "";
+      var why = item.why || [];
+      var whyHtml = why.length
+        ? "<ul>" + why.map(function (w) { return "<li>" + esc(w) + "</li>"; }).join("") + "</ul>"
+        : "<p>It cleared the watcher's model, revision and price checks for this niche.</p>";
+
+      app.innerHTML =
+        '<a class="back" href="/#live-finds">&larr; All finds</a>' +
+        '<article class="card">' + img + '<div class="card-body">' +
+        badge +
+        "<h1>" + esc(item.title) + "</h1>" +
+        '<div class="price-row"><span class="price">' + esc(money(item)) + "</span></div>" +
+        '<p class="meta">' + esc(item.niche || "") + " · " + esc(item.marketplace || "") +
+        (item.detected_at ? " · found " + esc(ago(item.detected_at)) : "") + "</p>" +
+        '<div class="why"><h2>Why the watcher flagged it</h2>' + whyHtml + "</div>" +
+        '<div class="caveats"><h2>Before you buy</h2><ul>' +
+        "<li>Confirm the model and revision with the seller — titles can be wrong.</li>" +
+        "<li>Ask for photos of serials, labels and the actual item working, if not shown.</li>" +
+        "<li>Factor in shipping, taxes and any import fees before comparing prices.</li>" +
+        "</ul></div>" +
+        '<div class="actions">' +
+        '<a class="btn btn-primary" href="' + esc(item.url) + '" target="_blank" rel="noopener noreferrer">View listing</a>' +
+        '<a class="btn btn-ghost" href="/#live-finds">More finds</a>' +
+        "</div></div></article>";
+    })
+    .catch(function () { missing(); });
+})();
+</script>
+</body>
+</html>

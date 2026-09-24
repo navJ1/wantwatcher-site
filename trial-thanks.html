@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>You&apos;re in · WantWatcher</title>
+<meta name="description" content="Your 3-day free WantWatcher Pro trial is on.">
+<style>
+  :root {
+    color-scheme: light dark;
+    --page: #f3f4ee; --surface: #ffffff;
+    --ink: #132222; --muted: #526160; --line: #c8d0c8;
+    --teal: #0d7773; --teal-deep: #0c3435; --teal-soft: #d6ebe6;
+    --orange: #ef8f2e;
+    --radius-lg: 28px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0c1717; --surface: #142323;
+      --ink: #f4f4ea; --muted: #b3c2bf; --line: #344948;
+      --teal: #50c0b4; --teal-deep: #082e2f; --teal-soft: #173b3a;
+      --orange: #f0a04e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; min-height: 100vh; display: flex; flex-direction: column; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 0 20px; }
+  header.site { padding: 22px 0; }
+  header.site a.brand { font-weight: 800; font-size: 1.15rem; color: var(--ink); text-decoration: none; }
+  header.site a.brand em { color: var(--teal); font-style: normal; }
+  main { flex: 1; display: flex; align-items: center; padding: 40px 0 80px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 40px 34px; text-align: center; }
+  .check { font-size: 3rem; margin-bottom: 6px; }
+  h1 { margin: 0 0 10px; font-size: 1.8rem; }
+  p { color: var(--muted); }
+  p strong { color: var(--ink); }
+  .steps { text-align: left; margin: 24px 0; display: grid; gap: 12px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; }
+  .step .n { flex: 0 0 28px; height: 28px; border-radius: 50%; background: var(--teal-soft); color: var(--teal-deep); font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; }
+  .btn { display: inline-block; margin-top: 8px; padding: 13px 30px; border-radius: 999px; background: var(--orange); color: #1d1408; font-weight: 700; text-decoration: none; }
+  footer { border-top: 1px solid var(--line); padding: 24px 0 36px; color: var(--muted); font-size: 0.9rem; text-align: center; }
+</style>
+</head>
+<body>
+  <header class="site"><div class="wrap"><a class="brand" href="/">Want<em>Watcher</em></a></div></header>
+  <main><div class="wrap">
+    <div class="card">
+      <div class="check">🎉</div>
+      <h1>You&apos;re on the list.</h1>
+      <p>Your <strong>3-day free Pro trial</strong> is requested. No card, nothing charged automatically — when the trial ends you can subscribe for <strong>C$8/month</strong> or let it lapse.</p>
+      <div class="steps">
+        <div class="step"><span class="n">1</span><span>Watch your inbox for a trial confirmation with your Discord invite.</span></div>
+        <div class="step"><span class="n">2</span><span>Join the WantWatcher Discord — that&apos;s where instant verified-find alerts land.</span></div>
+        <div class="step"><span class="n">3</span><span>Tell the watcher what you hunt and it starts pinging you first.</span></div>
+      </div>
+      <a class="btn" href="/#live-finds">Browse live finds meanwhile</a>
+    </div>
+  </div></main>
+  <footer><div class="wrap">WantWatcher — collector alerts for better finds, not more noise.</div></footer>
+</body>
+</html>

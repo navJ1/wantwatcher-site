@@ -1,0 +1,25 @@
+# WantWatcher site — Netlify config
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"
+
+# Scheduled trial expiry (runs daily). Remove the schedule if the
+# function is not yet wired to a trial store.
+[functions."expire-trials"]
+  schedule = "@daily"
+
+# Netlify Forms handles the trial signup form (data-netlify="true").
+# Submissions land in the Netlify dashboard; no extra config needed.
+
+# Friendly URLs
+[[redirects]]
+  from = "/trial"
+  to = "/#trial"
+  status = 302
+
+[[headers]]
+  for = "/find.html"
+  [headers.values]
+    Cache-Control = "public, max-age=300"
