@@ -26,6 +26,7 @@
  *      here is logged, not fatal).
  *
  * Returns JSON: { ok, since, listings_seen, matches, emails_sent,
+ *   discord_sent,
  *   truncated, errors }.
  *
  * Env vars (all server-side, Netlify dashboard only):
@@ -219,6 +220,44 @@ async function sendEmail(fetchImpl, apiKey, email) {
   }
 }
 
+/** Build a Discord webhook payload for one match. Uses an embed so the
+ *  alert is readable at a glance in the channel. Reuses priceLabel() so
+ *  unparseable prices never render as C$NaN. */
+function buildDiscordMessage(search, listing) {
+  const title = String(listing.title || "New listing").slice(0, 256);
+  const where = [listing.source, listing.location].filter(Boolean).join(" · ");
+  return {
+    content: `🔔 **WANTWATCHER ALERT** — matched \`${search.keywords}\``,
+    embeds: [
+      {
+        title,
+        url: listing.url || undefined,
+        description:
+          `${priceLabel(listing)}` + (where ? ` · ${where}` : ""),
+        color: 0x00ff00,
+        footer: {
+          text: "Flagged by automated checks · photos not inspected",
+        },
+      },
+    ],
+  };
+}
+
+/** POST a match to the Discord channel webhook. Optional: when
+ *  DISCORD_WEBHOOK_URL is unset the dispatcher simply skips this.
+ *  Webhooks return 204 on success. */
+async function sendDiscord(fetchImpl, webhookUrl, payload) {
+  const res = await fetchImpl(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (res.status !== 200 && res.status !== 204) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`discord ${res.status}: ${text.slice(0, 200)}`);
+  }
+}
+
 /**
  * Default listings loader: Supabase `listings` created in (since, cutoff].
  *
@@ -317,6 +356,7 @@ async function dispatchAlerts(deps = {}) {
     SUPABASE_SERVICE_ROLE_KEY,
     RESEND_API_KEY,
     ALERT_FROM,
+    DISCORD_WEBHOOK_URL,
   } = process.env;
   const missing = [
     ["SUPABASE_URL", SUPABASE_URL],
@@ -393,6 +433,7 @@ async function dispatchAlerts(deps = {}) {
     const errors = [];
     let matches = 0;
     let emailsSent = 0;
+    let discordSent = 0;
 
     for (const listing of listings) {
       for (const search of searches) {
@@ -471,6 +512,26 @@ async function dispatchAlerts(deps = {}) {
             error: `resend failed: ${e.message}`,
           });
         }
+
+        // Discord alert: independent channel, fires per confirmed match
+        // (dedupe insert already succeeded, so no double-posts). A
+        // Discord failure is logged, never fatal to the run.
+        if (DISCORD_WEBHOOK_URL) {
+          try {
+            await sendDiscord(
+              fetchImpl,
+              DISCORD_WEBHOOK_URL,
+              buildDiscordMessage(search, listing)
+            );
+            discordSent++;
+          } catch (e) {
+            errors.push({
+              search_id: search.id,
+              listing: `${listing.source}:${listing.source_id}`,
+              error: `discord failed: ${e.message}`,
+            });
+          }
+        }
       }
     }
 
@@ -499,6 +560,7 @@ async function dispatchAlerts(deps = {}) {
         listings_seen: listings.length,
         matches,
         emails_sent: emailsSent,
+        discord_sent: discordSent,
         truncated,
         errors,
       }),
@@ -515,3 +577,5 @@ exports.handler = async (event, context) => dispatchAlerts({});
 exports.dispatchAlerts = dispatchAlerts; // exported for the test suite
 exports.matchesSearch = matchesSearch; // exported for the test suite
 exports.defaultLoadListings = defaultLoadListings; // exported for the test suite
+exports.buildDiscordMessage = buildDiscordMessage; // exported for the test suite
+exports.sendDiscord = sendDiscord; // exported for the test suite

@@ -353,3 +353,37 @@ extraction should be redone against the new charcoal design when it lands).
 - MANUAL STEP (owner): Netlify dashboard -> Site settings -> Environment
   variables -> add `SITE_PASSWORD`, then Deploys -> Trigger deploy so the
   edge function picks up the new variable.
+
+## 2026-09-24 — listing engine (fetch-listings + Discord alerts)
+- New `netlify/functions/fetch-listings.js`, scheduled `*/15 * * * *` in
+  netlify.toml ("sweeps run every 15 minutes" is now real). Each run:
+  loads enabled `public.saved_searches`, queries the eBay Buy Browse API
+  (item_summary/search, EBAY_CA marketplace, CAD prices, OAuth2
+  client-credentials) for searches listing 'ebay' in marketplaces, and
+  upserts results into `public.listings` on (source, source_id).
+  Bounds: 50 rows/page x 2 pages per search, 400 searches per run; the
+  20-searches-per-user cap is enforced by the DB trigger. Invalid/missing
+  prices -> null (never C$NaN). One failing search can't kill a run.
+  Missing env vars -> graceful `{ok:true, skipped:true}`, never a crash.
+- Kijiji is a documented no-op stub (`fetchKijijiListings` logs and
+  returns []): server-side scraping is unreliable on a zero budget
+  (bot protection, no public API). No listings are ever fabricated.
+- `dispatch-alerts.js` now also POSTs every confirmed match to
+  DISCORD_WEBHOOK_URL (optional env; unset = skipped silently). Existing
+  Resend email behavior unchanged; Discord failures are logged, never
+  fatal. Response includes `discord_sent`.
+- MANUAL STEPS (owner, Netlify dashboard -> Site settings -> Environment
+  variables; then Deploys -> Trigger deploy):
+  - EBAY_APP_ID, EBAY_CERT_ID — eBay developer portal
+    (developer.ebay.com -> Application Keys, free tier, no card). Needed
+    for the sweep to query eBay.
+  - SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY — Supabase project dashboard
+    -> Project Settings -> API. ALSO still required: run supabase/schema.sql
+    then supabase/migrations/002_alerts.sql once in the SQL editor.
+  - RESEND_API_KEY — resend.com dashboard (free tier). Needed for email alerts.
+  - DISCORD_WEBHOOK_URL — Discord channel Settings -> Integrations ->
+    Webhooks -> New Webhook -> Copy Webhook URL. The old webhook was
+    revoked; create a fresh one. Needed for Discord alerts.
+  Until these are set, the sweep no-ops and the dispatcher reports
+  config_error — no crashes, no partial sends.
+- Tests: 90/90 green (71 existing + 19 new in tests/test_fetch_listings.js).

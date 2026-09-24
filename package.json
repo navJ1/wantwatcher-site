@@ -9,7 +9,7 @@
   "name": "wantwatcher-pro-functions",
   "private": true,
   "scripts": {
-    "test": "node --test tests/test_functions.js tests/test_dispatch_alerts.js"
+    "test": "node --test tests/test_functions.js tests/test_dispatch_alerts.js tests/test_fetch_listings.js"
   },
   "version": "1.0.0"
 }

@@ -18,6 +18,13 @@
 [functions."dispatch-alerts"]
   schedule = "*/30 * * * *"
 
+# Listing fetcher / sweep (runs every 15 minutes). Loads enabled saved
+# searches from Supabase and queries the eBay Browse API, upserting
+# results into public.listings for the dispatcher to match. No-op until
+# SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, EBAY_APP_ID, EBAY_CERT_ID set.
+[functions."fetch-listings"]
+  schedule = "*/15 * * * *"
+
 # Netlify Forms handles the trial signup form (data-netlify="true").
 # Submissions land in the Netlify dashboard; no extra config needed.
 
