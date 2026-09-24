@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d7773'/%3E%3Ccircle cx='14' cy='14' r='7' fill='none' stroke='white' stroke-width='3'/%3E%3Cpath d='M19.5 19.5L27 27' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
+<link rel="canonical" href="https://wantwatcher.com/dashboard.html" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="WantWatcher" />
+<meta property="og:url" content="https://wantwatcher.com/dashboard.html" />
+<meta property="og:title" content="Your saved searches · WantWatcher" />
+<meta property="og:description" content="Save the keywords you're hunting. WantWatcher watches eBay and Kijiji and alerts you when a match lands." />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Your saved searches · WantWatcher" />
+<meta name="twitter:description" content="Save the keywords you're hunting — WantWatcher watches eBay and Kijiji for matches." />
+<title>Your saved searches · WantWatcher</title>
+<meta name="description" content="Save the keywords you're hunting. WantWatcher watches eBay and Kijiji and alerts you when a match lands.">
+<style>
+  :root {
+    color-scheme: light dark;
+    --page: #f3f4ee; --surface: #ffffff; --surface-2: #e8ece5;
+    --ink: #132222; --muted: #526160; --line: #c8d0c8;
+    --teal: #0d7773; --teal-deep: #0c3435; --teal-soft: #d6ebe6;
+    --orange: #ef8f2e; --orange-ink: #a85a08; --orange-soft: #ffe4bd; --cream: #fff9ec;
+    --radius-lg: 28px; --radius-md: 18px; --radius-sm: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0c1717; --surface: #142323; --surface-2: #1d2d2d;
+      --ink: #f4f4ea; --muted: #b3c2bf; --line: #344948;
+      --teal: #50c0b4; --teal-deep: #082e2f; --teal-soft: #173b3a;
+      --orange: #f0a04e; --orange-ink: #f0a04e; --orange-soft: #4a3420;
+      --cream: #1c2a1a;
+    }
+  }
+  * { box-sizing: border-box; }
+  :focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; border-radius: 4px; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+  header.site { padding: 22px 0; }
+  header.site a.brand { font-weight: 800; font-size: 1.15rem; color: var(--ink); text-decoration: none; }
+  header.site a.brand em { color: var(--teal); font-style: normal; }
+  main { padding: 10px 0 80px; }
+  .back { display: inline-block; margin: 6px 0 22px; color: var(--teal); font-weight: 600; text-decoration: none; }
+  .back:hover { text-decoration: underline; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 28px; }
+  .card + .card { margin-top: 20px; }
+  h1 { margin: 0 0 10px; font-size: clamp(1.4rem, 4vw, 2rem); line-height: 1.25; }
+  h2 { margin: 0 0 14px; font-size: 1.1rem; }
+  .lede { color: var(--muted); margin: 0 0 6px; }
+  .eyebrow { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--teal); margin: 0 0 8px; }
+  form.stack { display: grid; gap: 14px; margin-top: 18px; }
+  form.stack label { display: grid; gap: 6px; font-weight: 600; font-size: 0.95rem; }
+  form.stack .opt { font-weight: 400; color: var(--muted); font-size: 0.85rem; }
+  form.stack input[type="text"], form.stack input[type="email"], form.stack input[type="number"], form.stack select {
+    padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; font-size: 1rem;
+    background: var(--surface); color: inherit; width: 100%; font-family: inherit; }
+  .checks { display: flex; gap: 18px; flex-wrap: wrap; }
+  .checks label { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .checks input { width: 1.1rem; height: 1.1rem; accent-color: var(--teal); }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 520px) { .row-2 { grid-template-columns: 1fr; } }
+  .btn { display: inline-block; padding: 13px 26px; border-radius: 999px; font-weight: 700; text-decoration: none; border: none; cursor: pointer; font-size: 1rem; font-family: inherit; }
+  .btn-primary { background: var(--orange); color: #1d1408; }
+  .btn-teal { background: var(--teal); color: #fff; }
+  .btn-ghost { border: 1px solid var(--line); color: var(--ink); background: transparent; }
+  .btn-danger { border: 1px solid var(--line); color: var(--ink); background: transparent; padding: 8px 16px; font-size: 0.85rem; }
+  .btn-danger:hover { border-color: #b3261e; color: #b3261e; }
+  .fine { color: var(--muted); font-size: 0.88rem; margin: 12px 0 0; }
+  .notice { padding: 14px 18px; border-radius: var(--radius-md); margin-top: 16px; font-size: 0.95rem; }
+  .notice.info { background: var(--teal-soft); }
+  .notice.error { background: var(--orange-soft); color: var(--ink); }
+  .who { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .who .email { font-weight: 600; overflow-wrap: anywhere; }
+  .search-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .search-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+    padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+  .search-item .kw { font-weight: 700; margin: 0 0 4px; overflow-wrap: anywhere; }
+  .search-item .meta { color: var(--muted); font-size: 0.88rem; margin: 0; }
+  .empty { text-align: center; color: var(--muted); padding: 26px 10px; border: 1px dashed var(--line); border-radius: var(--radius-md); }
+  .empty p { margin: 0 0 6px; }
+  .loading { text-align: center; color: var(--muted); padding: 70px 20px; }
+  footer { border-top: 1px solid var(--line); padding: 26px 0 40px; color: var(--muted); font-size: 0.9rem; }
+  footer a { color: var(--teal); }
+</style>
+</head>
+<body>
+  <header class="site"><div class="wrap"><a class="brand" href="/">Want<em>Watcher</em></a></div></header>
+  <main><div class="wrap" id="app">
+    <a class="back" href="/">&larr; Home</a>
+    <p class="loading">Loading your dashboard…</p>
+  </div></main>
+  <footer><div class="wrap">WantWatcher — collector alerts for better finds, not more noise. Saved searches are private to your account. <a href="/">Back to the live feed</a> · <a href="/dashboard.html">Dashboard</a>.</div></footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/supabase/config.js"></script>
+<script>
+(function () {
+  "use strict";
+  var app = document.getElementById("app");
+  var cfg = (typeof window.WANTWATCHER_SUPABASE === "object" && window.WANTWATCHER_SUPABASE) || {};
+  var CONFIGURED = typeof cfg.url === "string" && cfg.url.indexOf("YOUR-PROJECT-REF") === -1 &&
+                   typeof cfg.anonKey === "string" && cfg.anonKey.indexOf("YOUR-SUPABASE") === -1;
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function money(n) {
+    if (n == null || n === "") return null;
+    try { return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(n); }
+    catch (e) { return "C$" + n; }
+  }
+  function notice(kind, text) {
+    return '<div class="notice ' + kind + '" role="status">' + esc(text) + "</div>";
+  }
+
+  /* -- State 1: Supabase not wired up yet. Friendly panel, no console errors. -- */
+  function renderNotConfigured() {
+    app.innerHTML =
+      '<a class="back" href="/">&larr; Home</a>' +
+      '<div class="card"><p class="eyebrow">Saved searches</p>' +
+      "<h1>Keyword alerts are almost here.</h1>" +
+      '<p class="lede">Soon you\'ll save the exact keywords you\'re hunting — model numbers, niches, max prices — and we\'ll watch eBay and Kijiji for matches.</p>' +
+      '<p class="fine">Meanwhile, the <a href="/#live-finds">free live feed</a> is already running.</p></div>';
+  }
+
+  /* -- State 2: signed-out sign-in form (magic link, no password). -- */
+  function renderSignIn(msg) {
+    app.innerHTML =
+      '<a class="back" href="/">&larr; Home</a>' +
+      '<div class="card"><p class="eyebrow">Saved searches</p>' +
+      "<h1>Sign in to save your hunts.</h1>" +
+      '<p class="lede">No password — we email you a one-time sign-in link. Your saved searches stay private to your account.</p>' +
+      (msg ? notice(msg.kind, msg.text) : "") +
+      '<form class="stack" id="signin-form">' +
+      '<label>Email<input type="email" name="email" required autocomplete="email" placeholder="you@example.com"></label>' +
+      '<div><button class="btn btn-teal" type="submit">Email me a sign-in link</button></div>' +
+      "</form></div>";
+
+    document.getElementById("signin-form").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var email = ev.target.email.value.trim();
+      if (!email) return;
+      var btn = ev.target.querySelector("button");
+      btn.disabled = true;
+      btn.textContent = "Sending…";
+      client.auth.signInWithOtp({
+        email: email,
+        options: { emailRedirectTo: window.location.origin + "/dashboard.html" }
+      }).then(function (res) {
+        if (res.error) throw res.error;
+        renderSignIn({ kind: "info", text: "Check your inbox — we sent a sign-in link to " + email + "." });
+      }).catch(function () {
+        renderSignIn({ kind: "error", text: "Couldn't send the link. Double-check the address and try again." });
+      });
+    });
+  }
+
+  /* -- State 3: signed-in dashboard. -- */
+  function searchItemHtml(s) {
+    var parts = [s.niche || "vintage-tech"];
+    parts.push(s.max_price_cad != null ? "up to " + money(s.max_price_cad) : "no price cap");
+    parts.push(((s.marketplaces && s.marketplaces.length) ? s.marketplaces : ["ebay", "kijiji"]).join(" · "));
+    return '<li class="search-item" data-id="' + esc(s.id) + '">' +
+      '<div><p class="kw">' + esc(s.keywords) + '</p><p class="meta">' + esc(parts.join(" · ")) + "</p></div>" +
+      '<button class="btn btn-danger" data-delete="' + esc(s.id) + '">Delete</button></li>';
+  }
+
+  function renderDashboard(user, searches, msg) {
+    var listHtml = searches.length
+      ? '<ul class="search-list">' + searches.map(searchItemHtml).join("") + "</ul>"
+      : '<div class="empty"><p><strong>No saved searches yet.</strong></p><p>Add your first hunt below — e.g. “iPod Classic 160GB thin”.</p></div>';
+
+    app.innerHTML =
+      '<a class="back" href="/">&larr; Home</a>' +
+      '<div class="who"><span class="email">' + esc(user.email || "Signed in") + '</span>' +
+      '<button class="btn btn-ghost" id="signout">Sign out</button></div>' +
+      '<div class="card"><h2>Your saved searches</h2>' + listHtml +
+      (msg ? notice(msg.kind, msg.text) : "") + "</div>" +
+      '<div class="card"><h2>Add a hunt</h2>' +
+      '<p class="lede">We watch eBay and Kijiji for new listings matching these keywords.</p>' +
+      '<form class="stack" id="add-form">' +
+      '<label>Keywords <span class="opt">— be specific: model numbers beat vague terms</span>' +
+      '<input type="text" name="keywords" required maxlength="200" placeholder="e.g. iPod Classic 160GB thin" autocomplete="off"></label>' +
+      '<div class="row-2">' +
+      '<label>Niche<select name="niche"><option value="vintage-tech">Vintage tech</option>' +
+      '<option value="retro-gaming">Retro gaming</option><option value="other">Other</option></select></label>' +
+      '<label>Max price (CAD) <span class="opt">(optional)</span>' +
+      '<input type="number" name="max_price" min="1" step="0.01" placeholder="e.g. 200" inputmode="decimal"></label>' +
+      "</div>" +
+      '<label>Marketplaces</label><div class="checks">' +
+      '<label><input type="checkbox" name="mp_ebay" checked> eBay</label>' +
+      '<label><input type="checkbox" name="mp_kijiji" checked> Kijiji</label>' +
+      "</div>" +
+      '<div><button class="btn btn-primary" type="submit">Save this search</button></div>' +
+      "</form>" +
+      '<p class="fine">Email alerts go live next — saving searches now puts you first in line.</p></div>';
+
+    document.getElementById("signout").addEventListener("click", function () {
+      client.auth.signOut().then(function () { renderSignIn(null); });
+    });
+
+    document.getElementById("add-form").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var f = ev.target;
+      var keywords = f.keywords.value.trim();
+      if (!keywords) return;
+      var mps = [];
+      if (f.mp_ebay.checked) mps.push("ebay");
+      if (f.mp_kijiji.checked) mps.push("kijiji");
+      if (!mps.length) mps = ["ebay", "kijiji"];
+      var maxPrice = f.max_price.value === "" ? null : Number(f.max_price.value);
+      var btn = f.querySelector("button");
+      btn.disabled = true;
+      client.from("saved_searches").insert({
+        user_id: user.id,
+        keywords: keywords,
+        niche: f.niche.value,
+        max_price_cad: maxPrice,
+        marketplaces: mps
+      }).then(function (res) {
+        if (res.error) throw res.error;
+        loadDashboard(user);
+      }).catch(function () {
+        renderDashboard(user, searches, { kind: "error", text: "Couldn't save that search — try again." });
+      });
+    });
+
+    app.querySelectorAll("[data-delete]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-delete");
+        var row = btn.closest(".search-item");
+        var label = row ? row.querySelector(".kw").textContent : "this search";
+        if (!window.confirm('Delete "' + label + '"?')) return;
+        btn.disabled = true;
+        client.from("saved_searches").delete().eq("id", id).eq("user_id", user.id)
+          .then(function (res) {
+            if (res.error) throw res.error;
+            loadDashboard(user);
+          }).catch(function () {
+            renderDashboard(user, searches, { kind: "error", text: "Couldn't delete that search — try again." });
+          });
+      });
+    });
+  }
+
+  function loadDashboard(user) {
+    client.from("saved_searches")
+      .select("id, keywords, niche, max_price_cad, marketplaces, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .then(function (res) {
+        if (res.error) throw res.error;
+        renderDashboard(user, res.data || [], null);
+      })
+      .catch(function () {
+        renderDashboard(user, [], { kind: "error", text: "Couldn't load your searches — try refreshing." });
+      });
+  }
+
+  /* -- Boot. -- */
+  if (!CONFIGURED) { renderNotConfigured(); return; }
+  if (typeof window.supabase === "undefined" || typeof window.supabase.createClient !== "function") {
+    app.innerHTML = '<a class="back" href="/">&larr; Home</a>' +
+      '<div class="card"><p class="eyebrow">Saved searches</p><h1>Dashboard unavailable right now.</h1>' +
+      '<p class="lede">A script failed to load — check your connection and refresh.</p></div>';
+    return;
+  }
+
+  var client;
+  try {
+    client = window.supabase.createClient(cfg.url, cfg.anonKey);
+  } catch (e) {
+    renderNotConfigured();
+    return;
+  }
+
+  // Magic-link return: Supabase puts tokens in the URL hash; the client
+  // parses them automatically. Show a signing-in state meanwhile.
+  var inHash = false;
+  try { inHash = window.location.hash.indexOf("access_token=") !== -1; } catch (e) {}
+  if (inHash) {
+    app.innerHTML = '<p class="loading">Signing you in…</p>';
+  }
+
+  client.auth.onAuthStateChange(function (event, session) {
+    if (event === "SIGNED_IN" && session && session.user) {
+      try { window.history.replaceState(null, "", window.location.pathname); } catch (e) {}
+      loadDashboard(session.user);
+    } else if (event === "SIGNED_OUT") {
+      renderSignIn(null);
+    }
+  });
+
+  client.auth.getSession().then(function (res) {
+    if (res.error) throw res.error;
+    if (res.data && res.data.session && res.data.session.user) {
+      loadDashboard(res.data.session.user);
+    } else if (!inHash) {
+      renderSignIn(null);
+    }
+    // If inHash but no session yet, onAuthStateChange will fire shortly.
+  }).catch(function () {
+    renderSignIn({ kind: "error", text: "Couldn't reach the sign-in service — check your connection and try again." });
+  });
+
+  // Safety net: if a magic-link hash never resolves into a session, don't
+  // leave the user staring at "Signing you in…" forever.
+  setTimeout(function () {
+    if (inHash && app.querySelector(".loading")) {
+      try { window.history.replaceState(null, "", window.location.pathname); } catch (e) {}
+      renderSignIn({ kind: "error", text: "That sign-in link didn't work — request a fresh one below." });
+    }
+  }, 15000);
+})();
+</script>
+</body>
+</html>
