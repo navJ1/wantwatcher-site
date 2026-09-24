@@ -30,6 +30,20 @@ async function defaultTrialStore() {
   return getStore("trials");
 }
 
+/** Iterate every page of the trials listing so a large store is fully
+ *  processed. Without paginate:true, store.list() returns only the first
+ *  page and trials beyond it would silently never expire.
+ *  The list() result is awaited first so both promise-returning and
+ *  directly-iterable store implementations work. */
+async function listAllKeys(store) {
+  const keys = [];
+  const pages = await store.list({ prefix: "trial-", paginate: true });
+  for await (const page of pages) {
+    for (const blob of page.blobs || []) keys.push(blob.key);
+  }
+  return keys;
+}
+
 async function removeRole(botToken, guildId, userId, roleId, fetchImpl) {
   const res = await fetchImpl(
     `${DISCORD_API}/guilds/${guildId}/members/${userId}/roles/${roleId}`,
@@ -61,16 +75,15 @@ async function expireTrials(deps = {}) {
   }
 
   let store;
-  let listing;
+  let keys;
   try {
     store = await getTrialStore();
-    listing = await store.list({ prefix: "trial-" });
+    keys = await listAllKeys(store);
   } catch (e) {
     // Blobs unavailable — fail cleanly so the scheduled run logs a JSON
     // error instead of an unhandled exception; next run retries.
     return fail(500, "store_error", `Trial store unavailable: ${e.message}`);
   }
-  const keys = (listing.blobs || []).map((b) => b.key);
 
   const errors = [];
   let expired = 0;
@@ -96,7 +109,25 @@ async function expireTrials(deps = {}) {
       }
       continue;
     }
-    if (new Date(record.expires_at) > now) continue; // still active
+    const expiry = new Date(record.expires_at);
+    if (Number.isNaN(expiry.getTime())) {
+      // expires_at is present but unparseable. Treat like a malformed
+      // record: delete it and report loudly, but do NOT touch the Discord
+      // role — we cannot confirm the trial actually expired, so the
+      // operator revokes it manually from the logged error if needed.
+      try {
+        await store.delete(key);
+        errors.push({ key, error: "invalid expires_at; deleted" });
+      } catch (delErr) {
+        // Leave it for the next run, but say so loudly.
+        errors.push({
+          key,
+          error: `invalid expires_at; delete failed: ${delErr.message}`,
+        });
+      }
+      continue;
+    }
+    if (expiry > now) continue; // still active
 
     try {
       await removeRole(
