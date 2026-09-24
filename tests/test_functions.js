@@ -240,9 +240,26 @@ describe("link-discord", () => {
     assert.match(b.detail, /manual/i);
   });
 
-  it("trial: malformed member shape -> 502, no crash", async () => {
+  it("trial: member without a user object -> 404, no crash", async () => {
+    // A search hit with no user cannot be an exact username match, so it
+    // is treated as "not found" rather than a malformed member.
     setEnv(TRIAL_ENV);
     const { fetchImpl } = makeDiscordFetch({ member: { roles: [] } });
+    const store = makeStore();
+    const res = await linkDiscord(trialEvent(), {
+      fetchImpl,
+      getTrialStore: async () => store,
+    });
+    assert.equal(res.statusCode, 404);
+    assert.equal(bodyOf(res).error, "not_in_server");
+    assert.equal(store.calls.setJSON.length, 0);
+  });
+
+  it("trial: exact-match member with no user id -> 502, no crash", async () => {
+    setEnv(TRIAL_ENV);
+    const { fetchImpl } = makeDiscordFetch({
+      member: { user: { username: "Some.User" }, roles: [] },
+    });
     const store = makeStore();
     const res = await linkDiscord(trialEvent(), {
       fetchImpl,
@@ -264,6 +281,36 @@ describe("link-discord", () => {
     assert.equal(res.statusCode, 404);
     assert.equal(bodyOf(res).error, "not_in_server");
     assert.ok(!calls.some((c) => c.method === "PUT"), "no PUT happened");
+  });
+
+  it("trial: fuzzy-only search hit does NOT grant a role to someone else", async () => {
+    // Discord's /members/search is fuzzy: typing "some" can return
+    // "Some.User". Without an exact match we must refuse, never fall back
+    // to the first hit — that would hand trial access to the wrong person.
+    setEnv(TRIAL_ENV);
+    const { fetchImpl, calls } = makeDiscordFetch({ member: MEMBER });
+    const store = makeStore();
+    const res = await linkDiscord(trialEvent({ discord_username: "some" }), {
+      fetchImpl,
+      getTrialStore: async () => store,
+    });
+    assert.equal(res.statusCode, 404);
+    assert.equal(bodyOf(res).error, "not_in_server");
+    assert.match(bodyOf(res).detail, /exact Discord username/);
+    assert.ok(!calls.some((c) => c.method === "PUT"), "no PUT happened");
+    assert.equal(store.calls.setJSON.length, 0);
+  });
+
+  it("trial: exact username match is case-insensitive", async () => {
+    setEnv(TRIAL_ENV);
+    const { fetchImpl } = makeDiscordFetch({ member: MEMBER });
+    const store = makeStore();
+    const res = await linkDiscord(trialEvent({ discord_username: "SOME.user" }), {
+      fetchImpl,
+      getTrialStore: async () => store,
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(bodyOf(res).user_id, "u1");
   });
 
   it("trial: already-on-trial user -> 409", async () => {

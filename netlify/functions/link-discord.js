@@ -10,9 +10,9 @@
  *   { "trial": true, "discord_username": "some.user" }
  *
  * Paid flow:  Stripe session must be paid  ->  find member in the guild by
- *              username  ->  grant DISCORD_PRO_ROLE_ID.
+ *              exact username  ->  grant DISCORD_PRO_ROLE_ID.
  * Trial flow:  no Stripe check            ->  find member in the guild by
- *              username  ->  grant DISCORD_TRIAL_ROLE_ID and record the trial
+ *              exact username  ->  grant DISCORD_TRIAL_ROLE_ID and record the trial
  *              in Netlify Blobs with a 72h expiry (expire-trials.js revokes
  *              it later).
  *
@@ -78,8 +78,13 @@ async function stripeGetSession(stripeKey, sessionId, fetchImpl) {
   return res.json();
 }
 
-/** Find a guild member by their Discord username. Returns null when the
- *  user is not in the server. */
+/** Find a guild member by their exact Discord username (case-insensitive).
+ *  Returns null when the user is not in the server.
+ *
+ *  Deliberately NOT falling back to the first fuzzy result: Discord's
+ *  /members/search is prefix/fuzzy matching, so a partial or typo'd
+ *  username ("alex" vs "alexander") must never resolve to someone else's
+ *  account — that would grant Pro/trial access to the wrong person. */
 async function findGuildMember(botToken, guildId, username, fetchImpl) {
   const res = await fetchImpl(
     `${DISCORD_API}/guilds/${guildId}/members/search?query=${encodeURIComponent(
@@ -93,14 +98,15 @@ async function findGuildMember(botToken, guildId, username, fetchImpl) {
     throw new Error(`discord search ${res.status}: ${text.slice(0, 200)}`);
   }
   const members = await res.json();
-  // Prefer an exact case-insensitive username match; fall back to first hit.
-  const exact = members.find(
-    (m) =>
-      m.user &&
-      m.user.username &&
-      m.user.username.toLowerCase() === username.toLowerCase()
+  // Exact case-insensitive username match only. No fuzzy fallback (see above).
+  return (
+    members.find(
+      (m) =>
+        m.user &&
+        m.user.username &&
+        m.user.username.toLowerCase() === username.toLowerCase()
+    ) || null
   );
-  return exact || members[0] || null;
 }
 
 async function addRole(botToken, guildId, userId, roleId, fetchImpl) {
@@ -212,7 +218,7 @@ async function linkDiscord(event, deps = {}) {
     return fail(
       "not_in_server",
       404,
-      "That username wasn't found in the server. Join the Discord server first, then try again."
+      "That username wasn't found in the server. Make sure you entered your exact Discord username (not your server nickname) and that you've joined the server first."
     );
   }
   if (!member.user || !member.user.id) {
