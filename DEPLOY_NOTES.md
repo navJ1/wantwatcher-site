@@ -341,3 +341,15 @@ extraction should be redone against the new charcoal design when it lands).
 - Verified: `npm test` 33/33 pass on the branch; all inline scripts parse under node; div tags balanced;
   index.html 65,880 bytes (limit 150KB); 44px touch targets + mobile nav rules kept.
 - Merged cleanly onto master (overnight function/test merges touched disjoint files).
+
+## 2026-09-24 — site privacy gate (edge function, Basic Auth)
+- Added `netlify/edge-functions/gate.js`: HTTP Basic Auth on every static
+  page (`path = "/*"` in netlify.toml). Password is read from the
+  `SITE_PASSWORD` environment variable — never stored in the repo.
+- Fails closed: if SITE_PASSWORD is unset, all pages return 401.
+- `/.netlify/functions/*` excluded so scheduled jobs (expire-trials,
+  dispatch-alerts) and API calls keep working unauthenticated.
+- 401 page styled in the brutalist theme (black/neon, "STATUS: LOCKED").
+- MANUAL STEP (owner): Netlify dashboard -> Site settings -> Environment
+  variables -> add `SITE_PASSWORD`, then Deploys -> Trigger deploy so the
+  edge function picks up the new variable.

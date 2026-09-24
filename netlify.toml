@@ -27,6 +27,18 @@
   to = "/#trial"
   status = 302
 
+# Site-wide privacy gate: HTTP Basic Auth at the edge (see
+# netlify/edge-functions/gate.js). Password lives in the SITE_PASSWORD
+# environment variable (set in the Netlify dashboard, never in the repo).
+# Function endpoints stay ungated so scheduled jobs and API calls work.
+[edge_functions]
+  directory = "netlify/edge-functions"
+
+[[edge_functions]]
+  function = "gate"
+  path = "/*"
+  excluded_paths = ["/.netlify/functions/*"]
+
 [[headers]]
   for = "/find.html"
   [headers.values]
