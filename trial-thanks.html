@@ -7,69 +7,47 @@
 <meta name="description" content="Your 3-day free WantWatcher Pro trial is on.">
 <style>
   :root {
-    color-scheme: dark;
-    --bg: #0B1F3A; --bg-deep: #081627;
-    --surface: #10294F; --surface-2: #14315C;
-    --char: #14171C; --char-2: #1C212B;
-    --ink: #F3F6FC; --muted: #A9B7D0; --faint: #7E8CA6;
-    --line: rgba(148, 178, 226, .14); --line-strong: rgba(148, 178, 226, .30);
-    --gold: #C6A15B; --gold-bright: #DDBB7E; --gold-ink: #221806;
-    --gold-soft: rgba(198, 161, 91, .12);
-    --radius-lg: 20px; --radius-md: 14px;
-    --shadow: 0 24px 60px rgba(2, 8, 20, .45);
-    --font-display: "Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-    --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color-scheme: light dark;
+    --page: #f3f4ee; --surface: #ffffff;
+    --ink: #132222; --muted: #526160; --line: #c8d0c8;
+    --teal: #0d7773; --teal-deep: #0c3435; --teal-soft: #d6ebe6;
+    --orange: #ef8f2e;
+    --radius-lg: 28px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0c1717; --surface: #142323;
+      --ink: #f4f4ea; --muted: #b3c2bf; --line: #344948;
+      --teal: #50c0b4; --teal-deep: #082e2f; --teal-soft: #173b3a;
+      --orange: #f0a04e;
+    }
   }
   * { box-sizing: border-box; }
-  :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 6px; }
-  ::selection { background: rgba(198, 161, 91, .35); }
-  body { margin: 0; background: radial-gradient(900px 480px at 50% -8%, #14315C 0%, var(--bg) 65%);
-    color: var(--ink); font-family: var(--font-body); line-height: 1.6;
-    min-height: 100vh; display: flex; flex-direction: column; -webkit-font-smoothing: antialiased; }
-  h1 { font-family: var(--font-display); letter-spacing: -.02em; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; min-height: 100vh; display: flex; flex-direction: column; }
   .wrap { max-width: 640px; margin: 0 auto; padding: 0 20px; }
-  header.site { padding: 0; background: rgba(11, 31, 58, .78);
-    -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
-    border-bottom: 1px solid var(--line); }
-  header.site .wrap { display: flex; align-items: center; min-height: 68px; }
-  header.site a.brand { display: inline-flex; align-items: center; gap: 10px; min-height: 44px;
-    font-family: var(--font-display); font-weight: 700; font-size: 1.15rem;
-    color: var(--ink); text-decoration: none; }
-  header.site a.brand em { color: var(--gold); font-style: normal; }
-  .brand-mark { width: 30px; height: 30px; flex: 0 0 30px; }
-  main { flex: 1; display: flex; align-items: center; padding: 48px 0 80px; }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
-    padding: 44px 38px; text-align: center; box-shadow: var(--shadow); width: 100%; }
-  .check { width: 72px; height: 72px; margin: 0 auto 18px; border-radius: 50%;
-    background: var(--gold-soft); border: 1px solid rgba(198, 161, 91, .5);
-    display: grid; place-items: center; }
-  .check svg { width: 34px; height: 34px; }
-  h1 { margin: 0 0 12px; font-size: clamp(1.7rem, 4vw, 2.1rem); }
+  header.site { padding: 22px 0; }
+  header.site a.brand { font-weight: 800; font-size: 1.15rem; color: var(--ink); text-decoration: none; }
+  header.site a.brand em { color: var(--teal); font-style: normal; }
+  main { flex: 1; display: flex; align-items: center; padding: 40px 0 80px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 40px 34px; text-align: center; }
+  .check { font-size: 3rem; margin-bottom: 6px; }
+  h1 { margin: 0 0 10px; font-size: 1.8rem; }
   p { color: var(--muted); }
   p strong { color: var(--ink); }
-  .steps { text-align: left; margin: 28px 0; display: grid; gap: 14px; }
-  .step { display: flex; gap: 14px; align-items: flex-start; background: var(--char-2);
-    border: 1px solid var(--line); border-radius: var(--radius-md); padding: 16px 18px; }
-  .step .n { flex: 0 0 30px; height: 30px; border-radius: 50%; background: var(--gold-soft);
-    border: 1px solid rgba(198, 161, 91, .5); color: var(--gold-bright);
-    font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; }
-  .step span:last-child { color: var(--muted); font-size: .95rem; }
-  .step strong { color: var(--ink); }
-  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 52px;
-    margin-top: 8px; padding: 0 32px; border-radius: 999px; background: var(--gold);
-    color: var(--gold-ink); font-weight: 700; text-decoration: none;
-    box-shadow: 0 8px 24px rgba(198, 161, 91, .22);
-    transition: background .15s ease, transform .15s ease; }
-  .btn:hover { background: var(--gold-bright); transform: translateY(-1px); }
-  footer { background: var(--char); border-top: 1px solid var(--line); padding: 24px 0 36px;
-    color: var(--faint); font-size: 0.9rem; text-align: center; }
+  .steps { text-align: left; margin: 24px 0; display: grid; gap: 12px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; }
+  .step .n { flex: 0 0 28px; height: 28px; border-radius: 50%; background: var(--teal-soft); color: var(--teal-deep); font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; }
+  .btn { display: inline-block; margin-top: 8px; padding: 13px 30px; border-radius: 999px; background: var(--orange); color: #1d1408; font-weight: 700; text-decoration: none; }
+  footer { border-top: 1px solid var(--line); padding: 24px 0 36px; color: var(--muted); font-size: 0.9rem; text-align: center; }
 </style>
 </head>
 <body>
-  <header class="site"><div class="wrap"><a class="brand" href="/" aria-label="WantWatcher home"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#10294F"/><circle cx="14" cy="14" r="7" fill="none" stroke="#C6A15B" stroke-width="3"/><path d="M19.5 19.5L27 27" stroke="#C6A15B" stroke-width="3" stroke-linecap="round"/><circle cx="14" cy="14" r="2.6" fill="#5B8DEF"/></svg><span>Want<em>Watcher</em></span></a></div></header>
+  <header class="site"><div class="wrap"><a class="brand" href="/">Want<em>Watcher</em></a></div></header>
   <main><div class="wrap">
     <div class="card">
-      <div class="check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#C6A15B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+      <div class="check">🎉</div>
       <h1>You&apos;re on the list.</h1>
       <p>Your <strong>3-day free Pro trial</strong> is requested. No card, nothing charged automatically — when the trial ends you can subscribe for <strong>C$8/month</strong> or let it lapse.</p>
       <div class="steps">

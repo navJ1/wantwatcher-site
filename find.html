@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B1F3A'/%3E%3Ccircle cx='14' cy='14' r='7' fill='none' stroke='white' stroke-width='3'/%3E%3Cpath d='M19.5 19.5L27 27' stroke='%23C6A15B' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d7773'/%3E%3Ccircle cx='14' cy='14' r='7' fill='none' stroke='white' stroke-width='3'/%3E%3Cpath d='M19.5 19.5L27 27' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
 <link rel="canonical" href="https://wantwatcher.com/find.html" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="WantWatcher" />
@@ -17,78 +17,63 @@
 <meta name="description" content="Why the watcher flagged this marketplace find — the evidence, the price math, and what to check before you buy.">
 <style>
   :root {
-    color-scheme: dark;
-    --bg: #0B1F3A; --bg-deep: #081627;
-    --surface: #10294F; --surface-2: #14315C;
-    --char: #14171C; --char-2: #1C212B;
-    --ink: #F3F6FC; --muted: #A9B7D0; --faint: #7E8CA6;
-    --line: rgba(148, 178, 226, .14); --line-strong: rgba(148, 178, 226, .30);
-    --gold: #C6A15B; --gold-bright: #DDBB7E; --gold-ink: #221806;
-    --gold-soft: rgba(198, 161, 91, .12);
-    --blue: #5B8DEF;
-    --verified: #1F9D55; --verified-ink: #04160C;
-    --radius-lg: 20px; --radius-md: 14px; --radius-sm: 10px;
-    --shadow: 0 24px 60px rgba(2, 8, 20, .45);
-    --font-display: "Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-    --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color-scheme: light dark;
+    --page: #f3f4ee; --surface: #ffffff; --surface-2: #e8ece5;
+    --ink: #132222; --muted: #526160; --line: #c8d0c8;
+    --teal: #0d7773; --teal-deep: #0c3435; --teal-soft: #d6ebe6;
+    --orange: #ef8f2e; --orange-ink: #a85a08; --orange-soft: #ffe4bd; --cream: #fff9ec;
+    --radius-lg: 28px; --radius-md: 18px; --radius-sm: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0c1717; --surface: #142323; --surface-2: #1d2d2d;
+      --ink: #f4f4ea; --muted: #b3c2bf; --line: #344948;
+      --teal: #50c0b4; --teal-deep: #082e2f; --teal-soft: #173b3a;
+      --orange: #f0a04e; --orange-ink: #f0a04e; --orange-soft: #4a3420;
+      --cream: #1c2a1a;
+    }
   }
   * { box-sizing: border-box; }
-  :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 6px; }
-  ::selection { background: rgba(198, 161, 91, .35); }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-    font-family: var(--font-body); line-height: 1.6; -webkit-font-smoothing: antialiased; }
-  h1, h2 { font-family: var(--font-display); letter-spacing: -.02em; }
+  :focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; border-radius: 4px; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; }
   .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
-  header.site { padding: 0; position: sticky; top: 0; z-index: 60;
-    background: rgba(11, 31, 58, .78);
-    -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
-    border-bottom: 1px solid var(--line); }
-  header.site .wrap { display: flex; align-items: center; min-height: 68px; }
-  header.site a.brand { display: inline-flex; align-items: center; gap: 10px; min-height: 44px;
-    font-family: var(--font-display); font-weight: 700; font-size: 1.15rem;
-    color: var(--ink); text-decoration: none; }
-  header.site a.brand em { color: var(--gold); font-style: normal; }
-  .brand-mark { width: 30px; height: 30px; flex: 0 0 30px; }
+  header.site { padding: 22px 0; }
+  header.site a.brand { font-weight: 800; font-size: 1.15rem; color: var(--ink); text-decoration: none; }
+  header.site a.brand em { color: var(--teal); font-style: normal; }
   main { padding: 10px 0 80px; }
-  .back { display: inline-flex; align-items: center; min-height: 44px; margin: 6px 0 22px; color: var(--gold-bright); font-weight: 600; text-decoration: none; }
+  .back { display: inline-block; margin: 6px 0 22px; color: var(--teal); font-weight: 600; text-decoration: none; }
   .back:hover { text-decoration: underline; }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
-  .card img.hero { width: 100%; max-height: 380px; object-fit: cover; display: block; background: var(--bg-deep); }
-  .card-body { padding: 30px; }
-  /* Green is reserved exclusively for the Verified badge. */
-  .badge { display: inline-block; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
-    padding: 6px 13px; border-radius: 999px; margin-bottom: 14px; }
-  .badge.verified { background: var(--verified); color: var(--verified-ink); }
-  .badge.price_alert { color: var(--gold-bright); border: 1px solid rgba(198, 161, 91, .55); background: var(--gold-soft); }
-  h1 { margin: 0 0 10px; font-size: clamp(1.5rem, 4vw, 2.1rem); line-height: 1.25; }
-  .price-row { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 8px 0 6px; }
-  .price { font-family: var(--font-display); font-size: 2.1rem; font-weight: 700; letter-spacing: -.01em; }
-  .meta { color: var(--faint); font-size: 0.92rem; margin: 0 0 4px; }
-  .why { margin: 26px 0 0; padding: 22px 24px; background: var(--surface-2); border: 1px solid var(--line);
-    border-left: 3px solid var(--gold); border-radius: var(--radius-md); }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+  .card img.hero { width: 100%; max-height: 380px; object-fit: cover; display: block; background: var(--surface-2); }
+  .card-body { padding: 28px; }
+  .badge { display: inline-block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 5px 12px; border-radius: 999px; margin-bottom: 12px; }
+  .badge.verified { color: var(--teal); border: 1px solid var(--teal); }
+  .badge.price_alert { color: var(--orange-ink); border: 1px solid var(--orange); }
+  h1 { margin: 0 0 10px; font-size: clamp(1.4rem, 4vw, 2rem); line-height: 1.25; }
+  .price-row { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 6px 0 4px; }
+  .price { font-size: 2rem; font-weight: 800; }
+  .meta { color: var(--muted); font-size: 0.92rem; margin: 0 0 4px; }
+  .why { margin: 26px 0 0; padding: 20px 22px; background: var(--teal-soft); border-radius: var(--radius-md); }
   .why h2, .caveats h2 { margin: 0 0 10px; font-size: 1.05rem; }
   .why ul { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
-  .why li::marker { content: "✓ "; color: var(--gold); font-weight: 800; }
-  .why p { margin: 0; color: var(--muted); }
-  .caveats { margin: 18px 0 0; padding: 22px 24px; background: var(--char-2); border: 1px solid var(--line); border-radius: var(--radius-md); }
+  .why li::marker { content: "✓ "; color: var(--teal); font-weight: 800; }
+  .caveats { margin: 18px 0 0; padding: 20px 22px; background: var(--surface-2); border-radius: var(--radius-md); }
   .caveats ul { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--muted); font-size: 0.95rem; }
   .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
-  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px;
-    padding: 0 26px; border-radius: 999px; font-weight: 700; text-decoration: none;
-    transition: background .15s ease, border-color .15s ease; }
-  .btn-primary { background: var(--gold); color: var(--gold-ink); box-shadow: 0 8px 24px rgba(198, 161, 91, .22); }
-  .btn-primary:hover { background: var(--gold-bright); }
-  .btn-ghost { border: 1px solid var(--line-strong); color: var(--ink); background: rgba(255,255,255,.03); }
-  .btn-ghost:hover { border-color: var(--gold); }
+  .btn { display: inline-block; padding: 13px 26px; border-radius: 999px; font-weight: 700; text-decoration: none; }
+  .btn-primary { background: var(--orange); color: #1d1408; }
+  .btn-ghost { border: 1px solid var(--line); color: var(--ink); }
   .loading, .missing { text-align: center; color: var(--muted); padding: 70px 20px; }
   .missing h1 { margin-bottom: 8px; }
-  .missing .btn { margin-top: 6px; }
-  footer { background: var(--char); border-top: 1px solid var(--line); padding: 26px 0 40px; color: var(--faint); font-size: 0.9rem; }
-  footer a { color: var(--gold-bright); }
+  footer { border-top: 1px solid var(--line); padding: 26px 0 40px; color: var(--muted); font-size: 0.9rem; }
+  footer a { color: var(--teal); }
 </style>
 </head>
 <body>
-  <header class="site"><div class="wrap"><a class="brand" href="/" aria-label="WantWatcher home"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#10294F"/><circle cx="14" cy="14" r="7" fill="none" stroke="#C6A15B" stroke-width="3"/><path d="M19.5 19.5L27 27" stroke="#C6A15B" stroke-width="3" stroke-linecap="round"/><circle cx="14" cy="14" r="2.6" fill="#5B8DEF"/></svg><span>Want<em>Watcher</em></span></a></div></header>
+  <header class="site"><div class="wrap"><a class="brand" href="/">Want<em>Watcher</em></a></div></header>
   <main><div class="wrap" id="app">
     <p class="loading">Loading the find…</p>
   </div></main>
