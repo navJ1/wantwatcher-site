@@ -122,9 +122,12 @@ function matchesSearch(search, listing) {
   if (!terms.some((t) => title.includes(t))) return false;
 
   // Price cap: a listing with unknown price can never satisfy a cap.
+  // A non-numeric cap is garbage: treat it as no cap rather than letting
+  // NaN comparisons silently decide the outcome.
   if (search.max_price_cad != null) {
     if (listing.price_cad == null) return false;
-    if (Number(listing.price_cad) > Number(search.max_price_cad)) return false;
+    const cap = Number(search.max_price_cad);
+    if (!Number.isNaN(cap) && Number(listing.price_cad) > cap) return false;
   }
 
   // Marketplace allow-list, when the search restricts it.
@@ -274,13 +277,16 @@ async function dispatchAlerts(deps = {}) {
     }
 
     // 2 + 3. New listings and all saved searches.
-    const [listings, searches] = await Promise.all([
+    const [listings, loadedSearches] = await Promise.all([
       loadListings(fetchImpl, base, SUPABASE_SERVICE_ROLE_KEY, sinceISO, cutoffISO),
       sbGet(fetchImpl, base, SUPABASE_SERVICE_ROLE_KEY, "saved_searches", {
         select: "id,user_id,keywords,niche,max_price_cad,marketplaces,enabled",
         enabled: "eq.true", // paused hunts stay in the DB but never alert
       }),
     ]);
+    // Belt and suspenders: the query filters enabled hunts, but a disabled
+    // hunt must never alert even if it slips through the loader seam.
+    const searches = loadedSearches.filter((s) => s.enabled !== false);
 
     // 4 + 5. Match, dedupe-insert, then send.
     const emailCache = {}; // user_id -> email
