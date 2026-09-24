@@ -11,7 +11,7 @@
  *   3. loads all saved searches (service-role key, server-side only),
  *   4. matches: keyword (any comma-separated term, case-insensitive
  *      substring of the title) AND max_price_cad cap when set (listings
- *      with unknown price never match a capped search) AND marketplaces[]
+ *      with unknown OR unparseable price never match a capped search) AND marketplaces[]
  *      allow-list when set AND niche equality when both sides set it,
  *   5. for each match: INSERT into `alerts_sent` first, then send the
  *      email via Resend. A 409 on the insert means "already alerted" and
@@ -115,16 +115,35 @@ function searchTerms(search) {
     .filter(Boolean);
 }
 
+/**
+ * Parse a price to a finite number. Returns null when the price is
+ * unknown or unparseable (null/undefined, "", "contact", "N/A", NaN,
+ * Infinity, ...). Scraped listings regularly carry garbage price
+ * strings; callers must treat null as "price unknown" rather than 0 —
+ * Number(null) is 0 and Number("") is 0, both of which would wrongly
+ * pass a max-price cap.
+ */
+function asPrice(v) {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (s === "") return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
 function matchesSearch(search, listing) {
   const terms = searchTerms(search);
   if (terms.length === 0) return false;
   const title = String(listing.title || "").toLowerCase();
   if (!terms.some((t) => title.includes(t))) return false;
 
-  // Price cap: a listing with unknown price can never satisfy a cap.
+  // Price cap: a listing with unknown OR unparseable price can never
+  // satisfy a cap. (NaN > cap is false, so without the asPrice() check
+  // a garbage price like "contact" would silently match every cap.)
   if (search.max_price_cad != null) {
-    if (listing.price_cad == null) return false;
-    if (Number(listing.price_cad) > Number(search.max_price_cad)) return false;
+    const price = asPrice(listing.price_cad);
+    if (price == null) return false;
+    if (price > Number(search.max_price_cad)) return false;
   }
 
   // Marketplace allow-list, when the search restricts it.
@@ -149,9 +168,10 @@ function esc(s) {
 }
 
 function priceLabel(listing) {
-  return listing.price_cad == null
-    ? "price not listed"
-    : `C$${Number(listing.price_cad).toFixed(2)}`;
+  const price = asPrice(listing.price_cad);
+  // Unparseable prices ("contact", NaN, ...) render as "price not
+  // listed" — never "C$NaN" — in alert emails.
+  return price == null ? "price not listed" : `C$${price.toFixed(2)}`;
 }
 
 function buildEmail(from, to, search, listing) {
