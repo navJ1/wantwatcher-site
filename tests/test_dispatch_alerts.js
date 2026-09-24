@@ -4,7 +4,7 @@
  * No network, no real credentials: Supabase (PostgREST + Auth admin) and
  * Resend are faked behind one injected fetchImpl; listings come through
  * the deps.loadListings seam. Fixtures only — no real users.
- * Run: node --test netlify/functions/test_dispatch_alerts.js
+ * Run: node --test tests/test_dispatch_alerts.js
  */
 
 "use strict";
@@ -25,11 +25,25 @@ const NOW = new Date("2026-09-24T02:00:00.000Z");
 
 function baseSearches() {
   return [
-    { id: "s1", user_id: "u1", keywords: "ipod classic", niche: "ipod", max_price_cad: 250, marketplaces: ["ebay", "kijiji"] },
-    { id: "s2", user_id: "u2", keywords: "lego", niche: null, max_price_cad: null, marketplaces: [] },
-    { id: "s3", user_id: "u1", keywords: "   ", niche: null, max_price_cad: null, marketplaces: [] }, // malformed: no terms
-    { id: "s4", user_id: "u3", keywords: "gameboy", niche: null, max_price_cad: null, marketplaces: ["ebay"] },
+    { id: "s1", user_id: "u1", keywords: "ipod classic", niche: "ipod", max_price_cad: 250, marketplaces: ["ebay", "kijiji"], enabled: true },
+    { id: "s2", user_id: "u2", keywords: "lego", niche: null, max_price_cad: null, marketplaces: [], enabled: true },
+    { id: "s3", user_id: "u1", keywords: "   ", niche: null, max_price_cad: null, marketplaces: [], enabled: true }, // malformed: no terms
+    { id: "s4", user_id: "u3", keywords: "gameboy", niche: null, max_price_cad: null, marketplaces: ["ebay"], enabled: true },
   ];
+}
+
+// Small builders for the hardening tests (always enabled unless overridden).
+function searchWith(over) {
+  return Object.assign(
+    { id: "sx", user_id: "u1", keywords: "ipod", niche: null, max_price_cad: null, marketplaces: [], enabled: true },
+    over
+  );
+}
+function listingWith(over) {
+  return Object.assign(
+    { source: "ebay", source_id: "lx", title: "Apple iPod Classic 7th Gen 160GB", price_cad: 150, url: "https://ebay.ca/itm/lx", image: null, location: null, posted_at: T1, niche: "ipod", created_at: T1 },
+    over
+  );
 }
 
 function baseListings() {
@@ -59,7 +73,10 @@ function fakeResp(status, jsonBody) {
 /**
  * Fake Supabase + Resend behind one fetch.
  * state = { searches, listings, alerts: Set("search|source|source_id"),
- *           runs: [{ran_at, ok, ...}], outbox: [], resendFailFor: Set<to> }
+ *           runs: [{ran_at, ok, ...}], outbox: [], resendFailFor: Set<to>,
+ *           resendThrowFor: Set<to> (fetch rejects = network down),
+ *           ignoreEnabledFilter: true (saved_searches returns disabled rows
+ *             too, to test the dispatcher's defensive filter) }
  */
 function makeWorld(state = {}) {
   const w = {
@@ -69,6 +86,8 @@ function makeWorld(state = {}) {
     runs: state.runs || [],
     outbox: [],
     resendFailFor: state.resendFailFor || new Set(),
+    resendThrowFor: state.resendThrowFor || new Set(),
+    ignoreEnabledFilter: !!state.ignoreEnabledFilter,
     fetchCalls: 0,
   };
 
@@ -80,6 +99,9 @@ function makeWorld(state = {}) {
     // --- Resend ---
     if (u.hostname === "api.resend.com") {
       const email = JSON.parse(opts.body);
+      if (w.resendThrowFor.has(email.to)) {
+        throw new Error("socket hang up (simulated resend outage)");
+      }
       if (w.resendFailFor.has(email.to)) {
         return fakeResp(500, { error: "resend boom" });
       }
@@ -96,7 +118,14 @@ function makeWorld(state = {}) {
 
     // --- PostgREST ---
     if (u.pathname === "/rest/v1/saved_searches" && method === "GET") {
-      return fakeResp(200, w.searches);
+      // Mirror real PostgREST: the dispatcher queries enabled=eq.true, so
+      // disabled rows are filtered server-side. ignoreEnabledFilter lets a
+      // test leak a disabled row through to exercise the client-side guard.
+      let rows = w.searches;
+      if (!w.ignoreEnabledFilter && u.searchParams.get("enabled") === "eq.true") {
+        rows = rows.filter((s) => s.enabled === true);
+      }
+      return fakeResp(200, rows);
     }
     if (u.pathname === "/rest/v1/dispatcher_runs" && method === "GET") {
       const rows = w.runs
@@ -343,5 +372,285 @@ describe("matchesSearch", () => {
       matchesSearch(search({ niche: "ipod" }), listing({ niche: null })),
       true
     );
+  });
+  it("missing keywords (undefined) never match", () => {
+    assert.equal(matchesSearch(search({ keywords: undefined }), listing()), false);
+    assert.equal(matchesSearch(search({ keywords: null }), listing()), false);
+  });
+  it("non-numeric max_price_cad is treated as no cap", () => {
+    assert.equal(
+      matchesSearch(search({ max_price_cad: "not-a-number" }), listing({ price_cad: 99999 })),
+      true
+    );
+  });
+  it("unknown niche on the search filters differently-niched listings", () => {
+    assert.equal(
+      matchesSearch(search({ niche: "does-not-exist" }), listing({ niche: "ipod" })),
+      false
+    );
+    assert.equal(
+      matchesSearch(search({ niche: "does-not-exist" }), listing({ niche: null })),
+      true
+    );
+  });
+});
+
+// ---------------------------------------------------------------- hardening
+
+describe("dispatch-alerts: enabled flag", () => {
+  it("enabled=false hunts are excluded by the query and never alert", async () => {
+    const { world, fetchImpl, loadListings } = makeWorld({
+      searches: [
+        searchWith({ id: "on", keywords: "ipod" }),
+        searchWith({ id: "off", keywords: "ipod", enabled: false }),
+      ],
+      listings: [listingWith({ source_id: "l1" })],
+      runs: [{ ran_at: T0, ok: true }],
+    });
+    const body = bodyOf(await dispatchAlerts({ fetchImpl, now: NOW, loadListings }));
+    assert.equal(body.matches, 1);
+    assert.equal(body.emails_sent, 1);
+    assert.equal(world.outbox.length, 1);
+    assert.ok(world.alerts.has("on|ebay|l1"));
+    assert.ok(!world.alerts.has("off|ebay|l1"));
+    assert.equal(body.errors.length, 0);
+  });
+
+  it("a disabled search that leaks through the loader is still skipped", async () => {
+    const { world, fetchImpl, loadListings } = makeWorld({
+      searches: [searchWith({ id: "off", keywords: "ipod", enabled: false })],
+      listings: [listingWith({ source_id: "l1" })],
+      runs: [{ ran_at: T0, ok: true }],
+      ignoreEnabledFilter: true, // simulate the query filter failing
+    });
+    const body = bodyOf(await dispatchAlerts({ fetchImpl, now: NOW, loadListings }));
+    assert.equal(body.matches, 0);
+    assert.equal(body.emails_sent, 0);
+    assert.equal(world.outbox.length, 0);
+    assert.equal(world.alerts.size, 0);
+  });
+});
+
+describe("dispatch-alerts: watermark", () => {
+  it("a failed prior run does not count as a watermark: bootstrap again, send nothing", async () => {
+    const { world, fetchImpl, loadListings } = makeWorld({
+      searches: baseSearches(),
+      listings: baseListings(),
+      runs: [{ ran_at: T0, ok: false, errors: [{ error: "boom" }] }],
+    });
+    const res = await dispatchAlerts({ fetchImpl, now: NOW, loadListings });
+    const body = bodyOf(res);
+    assert.equal(body.bootstrapped, true);
+    assert.equal(world.outbox.length, 0);
+    assert.equal(world.alerts.size, 0);
+    assert.equal(world.runs.length, 2); // failed run + new bootstrap
+  });
+
+  it("the newest successful run is the watermark, not an older one", async () => {
+    const { world, fetchImpl, loadListings } = makeWorld({
+      searches: [searchWith({ id: "on", keywords: "ipod" })],
+      listings: [
+        listingWith({ source_id: "old", created_at: "2026-09-24T00:30:00.000Z" }),
+        listingWith({ source_id: "new", created_at: "2026-09-24T01:30:00.000Z" }),
+      ],
+      runs: [
+        { ran_at: T0, ok: true },
+        { ran_at: "2026-09-24T01:00:00.000Z", ok: true },
+      ],
+    });
+    const body = bodyOf(await dispatchAlerts({ fetchImpl, now: NOW, loadListings }));
+    assert.equal(body.since, "2026-09-24T01:00:00.000Z");
+    assert.equal(body.listings_seen, 1);
+    assert.equal(body.emails_sent, 1);
+    assert.ok(world.alerts.has("on|ebay|new"));
+    assert.ok(!world.alerts.has("on|ebay|old"));
+  });
+
+  it("listings outside the (since, cutoff] window never alert", async () => {
+    const { world, fetchImpl, loadListings } = makeWorld({
+      searches: [searchWith({ id: "on", keywords: "ipod" })],
+      listings: [
+        listingWith({ source_id: "at-cutoff", created_at: T0 }), // == since, excluded
+        listingWith({ source_id: "future", created_at: "2026-09-24T03:00:00.000Z" }), // > now
+        listingWith({ source_id: "inwin", created_at: T1 }),
+      ],
+      runs: [{ ran_at: T0, ok: true }],
+    });
+    const body = bodyOf(await dispatchAlerts({ fetchImpl, now: NOW, loadListings }));
+    assert.equal(body.listings_seen, 1);
+    assert.equal(body.emails_sent, 1);
+    assert.ok(world.alerts.has("on|ebay|inwin"));
+  });
+});
+
+describe("dispatch-alerts: exact-once dedupe", () => {
+  it("three consecutive runs deliver each match exactly once", async () => {
+    const listings = [listingWith({ source_id: "a", created_at: T1 })];
+    const { world, fetchImpl, loadListings } = makeWorld({
+      searches: [searchWith({ id: "on", keywords: "ipod" })],
+      listings,
+      runs: [{ ran_at: T0, ok: true }],
+    });
+    const now1 = new Date("2026-09-24T01:30:00.000Z");
+    const now2 = new Date("2026-09-24T02:00:00.000Z");
+    const now3 = new Date("2026-09-24T02:30:00.000Z");
+
+    const b1 = bodyOf(await dispatchAlerts({ fetchImpl, now: now1, loadListings }));
+    assert.equal(b1.emails_sent, 1);
+    assert.equal(b1.errors.length, 0);
+
+    // Re-run with the same window: 409 dedupe hits, zero sends.
+    const b1r = bodyOf(await dispatchAlerts({ fetchImpl, now: now1, loadListings }));
+    assert.equal(b1r.emails_sent, 0);
+    assert.equal(b1r.errors.length, 0);
+
+    listings.push(listingWith({ source_id: "b", created_at: "2026-09-24T01:45:00.000Z" }));
+    const b2 = bodyOf(await dispatchAlerts({ fetchImpl, now: now2, loadListings }));
+    assert.equal(b2.since, now1.toISOString());
+    assert.equal(b2.emails_sent, 1); // only b
+    assert.ok(world.alerts.has("on|ebay|b"));
+
+    const b3 = bodyOf(await dispatchAlerts({ fetchImpl, now: now3, loadListings }));
+    assert.equal(b3.emails_sent, 0);
+    assert.equal(b3.errors.length, 0);
+
+    assert.equal(world.outbox.length, 2);
+    assert.equal(world.alerts.size, 2);
+  });
+});
+
+describe("dispatch-alerts: resend failures", () => {
+  it("resend fetch throwing (network down) -> logged, no crash, dedupe kept, no retry", async () => {
+    const { world, fetchImpl, loadListings } = makeWorld({
+      searches: [searchWith({ id: "on", keywords: "ipod" })],
+      listings: [listingWith({ source_id: "l1" })],
+      runs: [{ ran_at: T0, ok: true }],
+      resendThrowFor: new Set(["user1@example.com"]),
+    });
+    const b1 = bodyOf(await dispatchAlerts({ fetchImpl, now: NOW, loadListings }));
+    assert.equal(b1.emails_sent, 0);
+    assert.equal(world.outbox.length, 0);
+    assert.ok(world.alerts.has("on|ebay|l1")); // dedupe row kept
+    assert.equal(b1.errors.length, 1);
+    assert.match(b1.errors[0].error, /resend failed/);
+
+    world.resendThrowFor.clear(); // resend recovers
+    const b2 = bodyOf(await dispatchAlerts({ fetchImpl, now: NOW, loadListings }));
+    // No retry of the failed send: insert-then-send means at most one
+    // missed email, never a duplicate.
+    assert.equal(b2.emails_sent, 0);
+    assert.equal(world.outbox.length, 0);
+    assert.equal(b2.errors.length, 0);
+  });
+});
+
+describe("dispatch-alerts: malformed saved_search rows", () => {
+  it("missing/null keywords never match and never alert", async () => {
+    const { world, fetchImpl, loadListings } = makeWorld({
+      searches: [
+        searchWith({ id: "nokey" }),
+        searchWith({ id: "nullkey", keywords: null }),
+      ],
+      listings: [listingWith({ source_id: "l1" })],
+      runs: [{ ran_at: T0, ok: true }],
+    });
+    delete world.searches[0].keywords; // column missing entirely
+    const body = bodyOf(await dispatchAlerts({ fetchImpl, now: NOW, loadListings }));
+    assert.equal(body.matches, 0);
+    assert.equal(body.emails_sent, 0);
+    assert.equal(world.outbox.length, 0);
+    assert.equal(world.alerts.size, 0);
+  });
+
+  it("non-numeric max_price_cad behaves as no cap", async () => {
+    const { world, fetchImpl, loadListings } = makeWorld({
+      searches: [searchWith({ id: "bcap", max_price_cad: "not-a-number" })],
+      listings: [listingWith({ source_id: "l1", price_cad: 99999 })],
+      runs: [{ ran_at: T0, ok: true }],
+    });
+    const body = bodyOf(await dispatchAlerts({ fetchImpl, now: NOW, loadListings }));
+    assert.equal(body.matches, 1);
+    assert.equal(body.emails_sent, 1);
+  });
+
+  it("unknown niche on the search filters out differently-niched listings", async () => {
+    const { world, fetchImpl, loadListings } = makeWorld({
+      searches: [searchWith({ id: "wn", keywords: "ipod", niche: "does-not-exist" })],
+      listings: [
+        listingWith({ source_id: "l1", niche: "ipod" }),
+        listingWith({ source_id: "l2", niche: null }),
+      ],
+      runs: [{ ran_at: T0, ok: true }],
+    });
+    const body = bodyOf(await dispatchAlerts({ fetchImpl, now: NOW, loadListings }));
+    // l1: both sides set, unequal -> filtered. l2: listing side unset -> passes.
+    assert.equal(body.matches, 1);
+    assert.equal(body.emails_sent, 1);
+    assert.ok(world.alerts.has("wn|ebay|l2"));
+    assert.ok(!world.alerts.has("wn|ebay|l1"));
+  });
+});
+
+describe("dispatch-alerts: marketplace filtering", () => {
+  it("ebay-only hunts never alert on kijiji listings and vice versa", async () => {
+    const { world, fetchImpl, loadListings } = makeWorld({
+      searches: [
+        searchWith({ id: "ebay-only", keywords: "ipod", marketplaces: ["ebay"] }),
+        searchWith({ id: "kijiji-only", keywords: "ipod", marketplaces: ["kijiji"] }),
+      ],
+      listings: [
+        listingWith({ source: "ebay", source_id: "e1" }),
+        listingWith({ source: "kijiji", source_id: "k1" }),
+      ],
+      runs: [{ ran_at: T0, ok: true }],
+    });
+    const body = bodyOf(await dispatchAlerts({ fetchImpl, now: NOW, loadListings }));
+    assert.equal(body.matches, 2);
+    assert.equal(body.emails_sent, 2);
+    assert.ok(world.alerts.has("ebay-only|ebay|e1"));
+    assert.ok(world.alerts.has("kijiji-only|kijiji|k1"));
+    assert.ok(!world.alerts.has("ebay-only|kijiji|k1"));
+    assert.ok(!world.alerts.has("kijiji-only|ebay|e1"));
+  });
+
+  it("a hunt with an empty marketplace list sees every marketplace", async () => {
+    const { world, fetchImpl, loadListings } = makeWorld({
+      searches: [searchWith({ id: "any", keywords: "ipod", marketplaces: [] })],
+      listings: [
+        listingWith({ source: "ebay", source_id: "e1" }),
+        listingWith({ source: "kijiji", source_id: "k1" }),
+      ],
+      runs: [{ ran_at: T0, ok: true }],
+    });
+    const body = bodyOf(await dispatchAlerts({ fetchImpl, now: NOW, loadListings }));
+    assert.equal(body.matches, 2);
+    assert.equal(body.emails_sent, 2);
+  });
+});
+
+describe("dispatch-alerts: niche filtering", () => {
+  it("niche-scoped hunts only alert within their niche", async () => {
+    const { world, fetchImpl, loadListings } = makeWorld({
+      searches: [
+        searchWith({ id: "n-ipod", keywords: "classic", niche: "ipod" }),
+        searchWith({ id: "n-lego", keywords: "classic", niche: "lego" }),
+        searchWith({ id: "n-any", keywords: "classic", niche: null }),
+      ],
+      listings: [
+        listingWith({ source_id: "l1", title: "iPod Classic 7th Gen", niche: "ipod" }),
+        listingWith({ source_id: "l2", title: "LEGO Classic bricks box", niche: "lego" }),
+        listingWith({ source_id: "l3", title: "Classic car model kit", niche: null }),
+      ],
+      runs: [{ ran_at: T0, ok: true }],
+    });
+    const body = bodyOf(await dispatchAlerts({ fetchImpl, now: NOW, loadListings }));
+    // n-ipod x l1,l3; n-lego x l2,l3; n-any x l1,l2,l3 = 7 matches
+    assert.equal(body.matches, 7);
+    assert.equal(body.emails_sent, 7);
+    assert.equal(world.outbox.length, 7);
+    assert.ok(world.alerts.has("n-ipod|ebay|l1"));
+    assert.ok(!world.alerts.has("n-ipod|ebay|l2")); // niche mismatch
+    assert.ok(world.alerts.has("n-ipod|ebay|l3")); // listing niche unset -> passes
+    assert.ok(world.alerts.has("n-any|ebay|l3")); // search niche unset -> passes
   });
 });
