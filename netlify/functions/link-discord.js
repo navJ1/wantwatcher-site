@@ -114,6 +114,17 @@ async function addRole(botToken, guildId, userId, roleId, fetchImpl) {
   }
 }
 
+async function removeRole(botToken, guildId, userId, roleId, fetchImpl) {
+  const res = await fetchImpl(
+    `${DISCORD_API}/guilds/${guildId}/members/${userId}/roles/${roleId}`,
+    { method: "DELETE", headers: { Authorization: `Bot ${botToken}` } }
+  );
+  // 204 = removed. 404 = member or role already gone — nothing left to do.
+  if (res.status === 204 || res.status === 404) return;
+  const text = await res.text().catch(() => "");
+  throw new Error(`discord remove-role ${res.status}: ${text.slice(0, 200)}`);
+}
+
 async function defaultTrialStore() {
   const { getStore } = await import("@netlify/blobs");
   return getStore("trials");
@@ -204,6 +215,13 @@ async function linkDiscord(event, deps = {}) {
       "That username wasn't found in the server. Join the Discord server first, then try again."
     );
   }
+  if (!member.user || !member.user.id) {
+    return fail(
+      "discord_error",
+      502,
+      "Member lookup returned an unexpected shape (no user id)."
+    );
+  }
 
   const roleId = isTrial ? trialRoleId : proRoleId;
   const roles = member.roles || [];
@@ -244,7 +262,20 @@ async function linkDiscord(event, deps = {}) {
         created_at: new Date().toISOString(),
       });
     } catch (e) {
-      return fail("store_error", 500, `Trial role granted but not recorded: ${e.message}`);
+      // The role was granted but the expiry was not recorded — without the
+      // record, expire-trials.js can never revoke it. Best-effort rollback:
+      // remove the role again so there is no unexpiring trial.
+      let rolledBack = false;
+      try {
+        await removeRole(botToken, guildId, member.user.id, roleId, fetchImpl);
+        rolledBack = true;
+      } catch (rbErr) {
+        // Fall through: the operator must fix this manually (see FULFILLMENT.md).
+      }
+      const detail = rolledBack
+        ? `Trial could not be recorded (${e.message}); the granted role was removed. Please try again.`
+        : `Trial role was granted but could NOT be recorded (${e.message}), and automatic rollback failed. An operator must remove the trial role manually (see FULFILLMENT.md).`;
+      return fail("store_error", 500, detail);
     }
     result.expires_at = expiresAt.toISOString();
   }
