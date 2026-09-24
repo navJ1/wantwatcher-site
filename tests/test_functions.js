@@ -24,14 +24,29 @@ function fakeResp(status, jsonBody) {
   };
 }
 
-/** In-memory Blobs stand-in. failOn: { list, get, setJSON, delete } -> Error message. */
-function makeStore(records = {}, failOn = {}) {
+/** In-memory Blobs stand-in. failOn: { list, get, setJSON, delete } -> Error message.
+ *  pageSize > 0 splits the listing into pages of that size when paginate:true,
+ *  emulating @netlify/blobs' paginated async iterator. */
+function makeStore(records = {}, failOn = {}, pageSize = 0) {
   const calls = { setJSON: [], deleted: [] };
   const store = {
     calls,
-    async list() {
+    async list(opts = {}) {
       if (failOn.list) throw new Error(failOn.list);
-      return { blobs: Object.keys(records).map((k) => ({ key: k })) };
+      const blobs = Object.keys(records).map((k) => ({ key: k }));
+      if (opts.paginate) {
+        const pages = [];
+        const size = pageSize > 0 ? pageSize : Math.max(blobs.length, 1);
+        for (let i = 0; i < blobs.length; i += size) {
+          pages.push({ blobs: blobs.slice(i, i + size) });
+        }
+        return {
+          [Symbol.asyncIterator]: async function* () {
+            for (const page of pages) yield page;
+          },
+        };
+      }
+      return { blobs };
     },
     async get(key) {
       if (failOn.get) throw new Error(failOn.get);
@@ -456,5 +471,81 @@ describe("expire-trials", () => {
     assert.equal(b.errors.length, 1);
     assert.match(b.errors[0].error, /malformed/);
     assert.deepEqual(store.calls.deleted, ["trial-bad"]);
+  });
+
+  it("paginated listing: trials beyond the first page are processed", async () => {
+    setEnv(TRIAL_ENV);
+    const fetchCalls = [];
+    const fetchImpl = async (url, opts = {}) => {
+      fetchCalls.push({ url, method: opts.method });
+      return fakeResp(204, undefined);
+    };
+    const store = makeStore(
+      {
+        "trial-p1": { user_id: "p1", expires_at: "2026-09-20T00:00:00Z" },
+        "trial-p2": { user_id: "p2", expires_at: "2026-09-30T00:00:00Z" }, // active
+        "trial-p3": { user_id: "p3", expires_at: "2026-09-21T00:00:00Z" },
+      },
+      {},
+      1 // one key per page: without pagination p2/p3 would be invisible
+    );
+    const res = await expireTrials({
+      now: NOW,
+      fetchImpl,
+      getTrialStore: async () => store,
+    });
+    const b = bodyOf(res);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(
+      { ok: b.ok, checked: b.checked, expired: b.expired, errors: b.errors },
+      { ok: true, checked: 3, expired: 2, errors: [] }
+    );
+    assert.deepEqual(store.calls.deleted.sort(), ["trial-p1", "trial-p3"]);
+  });
+
+  it("invalid expires_at: deleted and reported, Discord role untouched", async () => {
+    setEnv(TRIAL_ENV);
+    let fetched = false;
+    const store = makeStore({
+      "trial-x1": { user_id: "x1", expires_at: "not-a-date" },
+    });
+    const res = await expireTrials({
+      now: NOW,
+      fetchImpl: async () => {
+        fetched = true;
+        return fakeResp(204, undefined);
+      },
+      getTrialStore: async () => store,
+    });
+    const b = bodyOf(res);
+    assert.equal(b.checked, 1);
+    assert.equal(b.expired, 0);
+    assert.equal(b.errors.length, 1);
+    assert.match(b.errors[0].error, /invalid expires_at/);
+    assert.equal(
+      fetched,
+      false,
+      "unparseable expiry must not trigger a role removal"
+    );
+    assert.deepEqual(store.calls.deleted, ["trial-x1"]);
+  });
+
+  it("invalid expires_at with failing delete: reported, left for next run", async () => {
+    setEnv(TRIAL_ENV);
+    const store = makeStore(
+      { "trial-x2": { user_id: "x2", expires_at: "not-a-date" } },
+      { delete: "blobs down" }
+    );
+    const res = await expireTrials({
+      now: NOW,
+      fetchImpl: async () => fakeResp(204, undefined),
+      getTrialStore: async () => store,
+    });
+    const b = bodyOf(res);
+    assert.equal(b.checked, 1);
+    assert.equal(b.expired, 0);
+    assert.equal(b.errors.length, 1);
+    assert.match(b.errors[0].error, /invalid expires_at; delete failed/);
+    assert.deepEqual(store.calls.deleted, []);
   });
 });
