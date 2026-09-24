@@ -77,7 +77,7 @@
   <main><div class="wrap" id="app">
     <p class="loading">Loading the find…</p>
   </div></main>
-  <footer><div class="wrap">WantWatcher — collector alerts for better finds, not more noise. Verification means the listing passed the watcher&apos;s model, revision, photo, condition and price checks — always confirm the details with the seller before paying.</div></footer>
+  <footer><div class="wrap">WantWatcher — collector alerts for better finds, not more noise. Verification means the model ID appeared in the listing and the price checked out — photos are not inspected automatically. Always confirm the details with the seller before paying.</div></footer>
 
 <script>
 (function () {
@@ -104,6 +104,13 @@
     try {
       return new Intl.NumberFormat("en-CA", { style: "currency", currency: item.currency || "CAD" }).format(item.price);
     } catch (e) { return "$" + item.price; }
+  }
+  function loadError() {
+    app.innerHTML =
+      '<a class="back" href="/#live-finds">&larr; All finds</a>' +
+      '<div class="missing"><h1>Couldn\'t load this find.</h1>' +
+      "<p>Check your connection and try again — the feed may be temporarily unreachable.</p>" +
+      '<p><a class="btn btn-ghost" href="/#live-finds">See live finds</a></p></div>';
   }
   function missing() {
     app.innerHTML =
@@ -136,7 +143,7 @@
       var why = item.why || [];
       var whyHtml = why.length
         ? "<ul>" + why.map(function (w) { return "<li>" + esc(w) + "</li>"; }).join("") + "</ul>"
-        : "<p>It cleared the watcher's model, revision and price checks for this niche.</p>";
+        : "<p>Flagged from the listing title and price only. Confirm the model with the seller and check shipping before buying.</p>";
 
       app.innerHTML =
         '<a class="back" href="/#live-finds">&larr; All finds</a>' +
@@ -157,7 +164,7 @@
         '<a class="btn btn-ghost" href="/#live-finds">More finds</a>' +
         "</div></div></article>";
     })
-    .catch(function () { missing(); });
+    .catch(function () { loadError(); });
 })();
 </script>
 </body>

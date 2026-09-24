@@ -59,7 +59,8 @@
     padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; font-size: 1rem;
     background: var(--surface); color: inherit; width: 100%; font-family: inherit; }
   .checks { display: flex; gap: 18px; flex-wrap: wrap; }
-  .checks label { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .checks-wrap { border: 0; margin: 0; padding: 0; }
+  .checks-wrap legend { font-weight: 600; padding: 0; margin-bottom: 6px; }  .checks label { display: flex; align-items: center; gap: 8px; font-weight: 500; }
   .checks input { width: 1.1rem; height: 1.1rem; accent-color: var(--teal); }
   .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   @media (max-width: 520px) { .row-2 { grid-template-columns: 1fr; } }
@@ -80,6 +81,12 @@
     padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
   .search-item .kw { font-weight: 700; margin: 0 0 4px; overflow-wrap: anywhere; }
   .search-item .meta { color: var(--muted); font-size: 0.88rem; margin: 0; }
+  .search-item .row-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+  .search-item .row-actions .btn { min-height: 44px; } /* L4: 44px touch target */
+  .search-item.is-paused { opacity: 0.75; }
+  .paused-tag { display: inline-block; font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted); border: 1px solid var(--line);
+    border-radius: 999px; padding: 2px 8px; margin-left: 8px; vertical-align: middle; }
   .empty { text-align: center; color: var(--muted); padding: 26px 10px; border: 1px dashed var(--line); border-radius: var(--radius-md); }
   .empty p { margin: 0 0 6px; }
   .loading { text-align: center; color: var(--muted); padding: 70px 20px; }
@@ -166,9 +173,12 @@
     var parts = [s.niche || "vintage-tech"];
     parts.push(s.max_price_cad != null ? "up to " + money(s.max_price_cad) : "no price cap");
     parts.push(((s.marketplaces && s.marketplaces.length) ? s.marketplaces : ["ebay", "kijiji"]).join(" · "));
-    return '<li class="search-item" data-id="' + esc(s.id) + '">' +
-      '<div><p class="kw">' + esc(s.keywords) + '</p><p class="meta">' + esc(parts.join(" · ")) + "</p></div>" +
-      '<button class="btn btn-danger" data-delete="' + esc(s.id) + '">Delete</button></li>';
+    var paused = s.enabled === false;
+    return '<li class="search-item' + (paused ? " is-paused" : "") + '" data-id="' + esc(s.id) + '">' +
+      '<div><p class="kw">' + esc(s.keywords) + (paused ? ' <span class="paused-tag">paused</span>' : "") + '</p><p class="meta">' + esc(parts.join(" · ")) + "</p></div>" +
+      '<div class="row-actions">' +
+      '<button class="btn btn-ghost" data-toggle="' + esc(s.id) + '" data-enabled="' + (paused ? "false" : "true") + '">' + (paused ? "Resume" : "Pause") + "</button>" +
+      '<button class="btn btn-danger" data-delete="' + esc(s.id) + '">Delete</button></div></li>';
   }
 
   function renderDashboard(user, searches, msg) {
@@ -193,10 +203,10 @@
       '<label>Max price (CAD) <span class="opt">(optional)</span>' +
       '<input type="number" name="max_price" min="1" step="0.01" placeholder="e.g. 200" inputmode="decimal"></label>' +
       "</div>" +
-      '<label>Marketplaces</label><div class="checks">' +
+      '<fieldset class="checks-wrap"><legend>Marketplaces</legend><div class="checks">' +
       '<label><input type="checkbox" name="mp_ebay" checked> eBay</label>' +
       '<label><input type="checkbox" name="mp_kijiji" checked> Kijiji</label>' +
-      "</div>" +
+      "</div></fieldset>" +
       '<div><button class="btn btn-primary" type="submit">Save this search</button></div>' +
       "</form>" +
       '<p class="fine">Email alerts go live next — saving searches now puts you first in line.</p></div>';
@@ -231,6 +241,21 @@
       });
     });
 
+    app.querySelectorAll("[data-toggle]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-toggle");
+        var next = btn.getAttribute("data-enabled") !== "true";
+        btn.disabled = true;
+        client.from("saved_searches").update({ enabled: next }).eq("id", id).eq("user_id", user.id)
+          .then(function (res) {
+            if (res.error) throw res.error;
+            loadDashboard(user);
+          }).catch(function () {
+            renderDashboard(user, searches, { kind: "error", text: "Couldn't update that search — try again." });
+          });
+      });
+    });
+
     app.querySelectorAll("[data-delete]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var id = btn.getAttribute("data-delete");
@@ -251,7 +276,7 @@
 
   function loadDashboard(user) {
     client.from("saved_searches")
-      .select("id, keywords, niche, max_price_cad, marketplaces, created_at")
+      .select("id, keywords, niche, max_price_cad, marketplaces, enabled, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .then(function (res) {

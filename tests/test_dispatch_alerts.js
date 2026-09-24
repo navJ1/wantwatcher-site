@@ -15,7 +15,7 @@ const assert = require("node:assert/strict");
 const {
   dispatchAlerts,
   matchesSearch,
-} = require("./dispatch-alerts.js");
+} = require("../netlify/functions/dispatch-alerts.js");
 
 // ---------------------------------------------------------------- fixtures
 

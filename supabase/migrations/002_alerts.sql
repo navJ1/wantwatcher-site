@@ -60,3 +60,29 @@ create table if not exists public.dispatcher_runs (
 alter table public.listings        enable row level security;
 alter table public.alerts_sent     enable row level security;
 alter table public.dispatcher_runs enable row level security;
+
+-- Added 2026-09-24 (Phase 4): index on the dispatcher's hottest query
+-- (ORDER BY ran_at DESC LIMIT 1 every run).
+create index if not exists dispatcher_runs_ran_at_idx
+  on public.dispatcher_runs (ran_at desc);
+
+-- Added 2026-09-24 (Phase 4): owner-scoped reads so the dashboard can show
+-- a signed-in user their own alert history. Service-role writes are unaffected.
+drop policy if exists "alerts_sent_owner_select" on public.alerts_sent;
+create policy "alerts_sent_owner_select" on public.alerts_sent
+  for select
+  using (
+    exists (select 1 from public.saved_searches s
+            where s.id = alerts_sent.search_id and s.user_id = auth.uid())
+  );
+
+drop policy if exists "listings_via_own_alerts_select" on public.listings;
+create policy "listings_via_own_alerts_select" on public.listings
+  for select
+  using (
+    exists (select 1 from public.alerts_sent a
+            join public.saved_searches s on s.id = a.search_id
+            where a.source = listings.source
+              and a.source_id = listings.source_id
+              and s.user_id = auth.uid())
+  );

@@ -1,5 +1,39 @@
 # DEPLOY_NOTES.md
 
+## 2026-09-24 — Audit fixes: schema upgrades, honesty copy, live bugs, UX polish
+
+**Schema (supabase/schema.sql, supabase/migrations/002_alerts.sql) — run both in order:**
+- `saved_searches.enabled boolean not null default true` — pause a hunt without deleting it.
+- 20-searches-per-user cap via `cap_searches_per_user()` trigger (dashboard should also enforce).
+- `dispatcher_runs_ran_at_idx` on `(ran_at desc)` — the dispatcher's hottest query.
+- Owner-scoped SELECT policies on `alerts_sent` and `listings` so the dashboard can show
+  a user their own alert history (service-role writes unaffected).
+- All statements re-runnable (IF NOT EXISTS / DROP POLICY / DROP TRIGGER first).
+
+**Dispatcher + dashboard wiring:**
+- `dispatch-alerts.js` now queries `saved_searches` with `enabled=eq.true` (paused hunts never alert).
+- `dashboard.html`: Pause/Resume toggle per hunt, `enabled` in the select, fieldset/legend
+  for the Marketplaces group (a11y), 44px touch targets on row buttons.
+
+**Honesty & copy (index.html, find.html):**
+- Removed both Facebook Marketplace claims (V1 is eBay + Kijiji only).
+- "Daily sweeps" → "Sweeps run every 15 minutes" (matches the real cron).
+- Verified badge legend/section/FAQ now say photos are not inspected automatically;
+  spotlight cards carry "Flagged by automated checks — not a hands-on review."
+- find.html empty-why fallback rewritten (no longer implies checks that never ran);
+  network failure now shows its own error state instead of "this find has moved on".
+
+**Live bugs:**
+- `netlify/functions/test_*.js` moved to `tests/` (they were being deployed as public
+  function endpoints); `package.json` test script updated; 33/33 tests pass.
+- Watcher-side (separate agent, in progress): status.json 422 push fix, GBA listing purge.
+
+**UX & mobile:**
+- Mobile nav keeps "Live finds" + "Dashboard" (was CTA-only below 900px).
+- Spotlight card stacks to one column on phones.
+- The two ~100KB base64 PDFs extracted to `guides/*.pdf`; index.html shrank ~254KB → ~51KB.
+- Dead-end FAQ "Subscribe" CTA now links to the dashboard.
+
 ## 2026-09-24 — Fetcher engine (Task 1: eBay + Kijiji adapters, watcher-side)
 
 **What changed** (in the watcher dir, not this repo — no site files touched):

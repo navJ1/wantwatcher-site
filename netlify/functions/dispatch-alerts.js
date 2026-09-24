@@ -277,7 +277,8 @@ async function dispatchAlerts(deps = {}) {
     const [listings, searches] = await Promise.all([
       loadListings(fetchImpl, base, SUPABASE_SERVICE_ROLE_KEY, sinceISO, cutoffISO),
       sbGet(fetchImpl, base, SUPABASE_SERVICE_ROLE_KEY, "saved_searches", {
-        select: "id,user_id,keywords,niche,max_price_cad,marketplaces",
+        select: "id,user_id,keywords,niche,max_price_cad,marketplaces,enabled",
+        enabled: "eq.true", // paused hunts stay in the DB but never alert
       }),
     ]);
 

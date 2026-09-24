@@ -9,7 +9,7 @@
   "name": "wantwatcher-pro-functions",
   "private": true,
   "scripts": {
-    "test": "node --test netlify/functions/test_functions.js netlify/functions/test_dispatch_alerts.js"
+    "test": "node --test tests/test_functions.js tests/test_dispatch_alerts.js"
   },
   "version": "1.0.0"
 }

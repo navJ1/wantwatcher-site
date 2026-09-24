@@ -14,8 +14,29 @@ create table if not exists public.saved_searches (
                 check (niche in ('vintage-tech', 'retro-gaming', 'other')),
   max_price_cad numeric(10, 2) check (max_price_cad is null or max_price_cad > 0),
   marketplaces  text[]      not null default '{ebay,kijiji}',
+  enabled       boolean     not null default true,  -- pause a hunt without deleting it
   created_at    timestamptz not null default now()
 );
+
+-- Added 2026-09-24 (Phase 4): enabled flag for hunts created before the column existed.
+alter table public.saved_searches
+  add column if not exists enabled boolean not null default true;
+
+-- Per-user cap: max 20 saved searches. The dashboard enforces this too;
+-- the trigger is the backstop so the dispatcher can never face unbounded work.
+create or replace function public.cap_searches_per_user()
+returns trigger language plpgsql as $$
+begin
+  if (select count(*) from public.saved_searches where user_id = new.user_id) >= 20 then
+    raise exception 'maximum 20 saved searches per user';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists saved_searches_cap on public.saved_searches;
+create trigger saved_searches_cap
+  before insert on public.saved_searches
+  for each row execute function public.cap_searches_per_user();
 
 create index if not exists saved_searches_user_id_idx
   on public.saved_searches (user_id);

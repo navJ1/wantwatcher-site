@@ -10,8 +10,8 @@
 const { describe, it, beforeEach, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
 
-const { linkDiscord } = require("./link-discord.js");
-const { expireTrials } = require("./expire-trials.js");
+const { linkDiscord } = require("../netlify/functions/link-discord.js");
+const { expireTrials } = require("../netlify/functions/expire-trials.js");
 
 // ---------------------------------------------------------------- helpers
 
