@@ -1,5 +1,29 @@
 # DEPLOY_NOTES.md
 
+## 2026-09-24 — Fetcher engine (Task 1: eBay + Kijiji adapters, watcher-side)
+
+**What changed** (in the watcher dir, not this repo — no site files touched):
+- `ebay_adapter.py`: eBay Browse API behind `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET`
+  (aliases `EBAY_APP_ID`/`EBAY_CERT_ID` accepted); clean skip without keys;
+  `DRY_RUN=1` support; per-run call budget (default 50) under the 5,000/day free tier.
+- `kijiji_adapter.py`: zero-cost, zero-auth Kijiji ingestion via search-page
+  `__NEXT_DATA__` JSON; 1 request per 5s, 1 page per query, rotating cursor so
+  18 keyword/location pairs are covered over ~3 runs; layout change = warn + skip.
+- `listings_store.py`: unified Listing schema + JSONL backend (dedupe on
+  `(source, source_id)`, auto-pruned); Supabase backend left as an explicit
+  raising seam for later.
+- Wired into the watcher's `main.py` additively; 15-min cron schedule and all
+  existing outputs untouched. New env vars documented in the watcher's
+  `ENV_NOTES_2026-09-24.md` (consolidated here per the audit rule).
+
+**New environment variables** (watcher `.env`, all optional):
+- `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET` — eBay production keys (user approval pending)
+- `EBAY_CALL_BUDGET_PER_RUN` (default 50), `DRY_RUN=1`, `ENABLE_KIJIJI` (default 1),
+  `LISTINGS_BACKEND` (default jsonl)
+
+**Tests:** new `test_fetchers.py` 21/21 pass; existing watcher suite 49/49 pass;
+Kijiji adapter verified live (34 real Toronto listings pulled, nothing posted).
+
 Deployment-affecting changes to the WantWatcher site, newest first.
 Rule: any change to `netlify.toml`, build settings, function config, or
 hosting setup gets a dated entry here with what changed, why, and new
