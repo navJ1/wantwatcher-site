@@ -255,7 +255,7 @@ Notes:
 ## 2026-09-24 — visual overhaul reverted
 - Reverted the navy/gold redesign (e79dd61): owner found it empty/generic (dead navy space, muddy buttons, faint icons).
 - Live site restored to the pre-redesign build (5c12c69 + ENGINE_PLAN.md removal).
-- New charcoal/glass aesthetic being built in isolated worktree branch `redesign/charcoal-glass`; not merged to master.
+- New charcoal/glass aesthetic merged to master from branch `redesign/charcoal-glass` (see entry below).
 
 ## 2026-09-24 — overnight hardening merges (6 of 8 branches)
 Merged to master after review; `npm test` 71/71 green. Held back:
@@ -281,3 +281,25 @@ extraction should be redone against the new charcoal design when it lands).
 - dispatcher-pagination: defaultLoadListings now drains the (since, cutoff]
   window with keyset pagination (10-page/5,000-row budget); runs report
   truncated:true instead of silently dropping listings past 500.
+
+## 2026-09-24 — charcoal/glass restyle merged to master (was branch `redesign/charcoal-glass`)
+- Replaces the reverted navy/gold look per owner feedback (empty, dated, generic).
+- New aesthetic: true near-black base `#090a0f`, dark-only, Space Grotesk display + Inter body,
+  crisp gold (`#d9b36c`) accents, green (`#35d07f`) reserved for Verified/deal-price.
+- Hero: centered copy with tracking-tight headline, sharp focused radial glow behind center
+  content (not whole-background lighting), plus a dependency-free `<canvas>` of sharp
+  monochrome line icons (camera, sneaker, watch, controller, headphones, vinyl) that drift
+  and repel/glow near the cursor — DPR capped at 2, pauses on `visibilitychange` +
+  `IntersectionObserver`, static faint paint under `prefers-reduced-motion`.
+- New floating glassmorphic "Live Deal Card" under the hero: 1px gradient border, soft
+  shadow, float animation, inline-SVG Game Boy illustration (zero external images),
+  crossed-out original price, green deal price, `eBay · 4m ago` tag, Verified badge.
+- Buttons: high-contrast dark with subtle gold border glows + hover lift; no mustard pills.
+- dashboard.html / find.html / trial-thanks.html restyled in the same system (sticky blur
+  headers); all Supabase/trial/Netlify-Form JS untouched, all element IDs/classes preserved.
+- Honesty copy preserved verbatim: no Facebook mentions, "Sweeps run every 15 minutes",
+  photos-not-inspected disclaimers, spotlight "Flagged by automated checks" note,
+  $8 CAD/month, 3-day no-card trial, 8-hour feed delay.
+- Verified: `npm test` 33/33 pass on the branch; all inline scripts parse under node; div tags balanced;
+  index.html 65,880 bytes (limit 150KB); 44px touch targets + mobile nav rules kept.
+- Merged cleanly onto master (overnight function/test merges touched disjoint files).
