@@ -352,9 +352,11 @@
           <h2>Live finds</h2>
           <p class="live-updated" id="live-updated">Checking the feed&hellip;</p>
         </div>
+        <p class="live-explainer">Free forever — members see every find <strong>8 hours early</strong> with instant Discord alerts. <span class="live-legend"><span class="live-badge verified">Verified find</span> model, revision &amp; price checked <span class="live-badge price_alert">Price alert</span> price dip — check the details</span></p>
         <div class="live-teaser" id="live-teaser" hidden></div>
         <div class="live-spot" id="live-spot" hidden></div>
         <p class="live-stats" id="live-stats"></p>
+        <div class="live-filters" id="live-filters" hidden></div>
         <div class="live-grid" id="live-grid" aria-live="polite"></div>
         <p class="live-note" id="live-note" hidden></p>
       </div>
@@ -553,6 +555,22 @@
       .live-spot h3 a:hover { text-decoration: underline; }
       .live-spot-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: auto; padding-top: 8px; }
       .live-stats { color: var(--muted); font-size: 0.9rem; margin: 14px 0 0; }
+      .live-explainer { color: var(--muted); font-size: 0.9rem; margin: 10px 0 0; }
+      .live-legend { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: 8px; }
+      .live-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+      .live-chip { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+      .live-chip:hover { border-color: var(--teal); color: var(--ink); }
+      .live-chip.active { background: var(--teal); border-color: var(--teal); color: #fff; }
+      .live-img-fallback { width: 100%; height: 170px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--teal-soft), var(--surface-2)); }
+      .live-img-fallback span { font-size: 3rem; font-weight: 800; color: var(--teal); opacity: 0.45; }
+      .live-spot .live-img-fallback { height: 100%; min-height: 230px; }
+      .live-skel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; }
+      .live-skel .sk-img { height: 170px; }
+      .live-skel .sk-body { padding: 16px; display: grid; gap: 10px; }
+      .live-skel .sk-line { height: 14px; border-radius: 7px; }
+      .sk-shimmer { background: linear-gradient(90deg, var(--surface-2) 25%, var(--line) 50%, var(--surface-2) 75%); background-size: 200% 100%; animation: ww-shimmer 1.4s linear infinite; }
+      @keyframes ww-shimmer { to { background-position: -200% 0; } }
+      @media (prefers-reduced-motion: reduce) { .sk-shimmer { animation: none; } }
       .live-empty { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 48px 16px; border: 1px dashed var(--line); border-radius: var(--radius-md); }
       .live-note { color: var(--muted); font-size: 0.85rem; margin-top: 14px; }
     </style>
@@ -568,7 +586,10 @@
       var spotEl = document.getElementById("live-spot");
       var statsEl = document.getElementById("live-stats");
       var noteEl = document.getElementById("live-note");
+      var filtersEl = document.getElementById("live-filters");
       var hasRendered = false;
+      var allItems = [];
+      var activeFilter = "all";
 
       function esc(s) {
         return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -608,11 +629,27 @@
         return "find.html?id=" + encodeURIComponent(item.id || "");
       }
 
+      function imgFallbackHtml(label) {
+        return '<div class="live-img-fallback" aria-hidden="true"><span>' + esc(label) + "</span></div>";
+      }
+      function imgTag(item) {
+        var label = String(item.niche || item.marketplace || "?").charAt(0).toUpperCase() || "?";
+        if (item.image) {
+          return '<img src="' + esc(item.image) + '" alt="" loading="lazy" data-label="' + esc(label) + '" onerror="wwImgFallback(this)">';
+        }
+        return imgFallbackHtml(label);
+      }
+      // Global: invoked by inline onerror handlers. Swaps a broken <img> for a
+      // styled brand-tinted placeholder so the card keeps its shape.
+      window.wwImgFallback = function (el) {
+        var tmp = document.createElement("div");
+        tmp.innerHTML = imgFallbackHtml(el.getAttribute("data-label") || "?");
+        el.replaceWith(tmp.firstChild);
+      };
+
       function card(item) {
         var badge = badgeHtml(item);
-        var img = item.image
-          ? '<img src="' + esc(item.image) + '" alt="" loading="lazy" onerror="this.remove()">'
-          : "";
+        var img = imgTag(item);
         var ends = "";
         if (item.ends_at) {
           var ms = new Date(item.ends_at).getTime() - Date.now();
@@ -634,9 +671,7 @@
       function renderSpot(item) {
         if (!item) { spotEl.hidden = true; spotEl.innerHTML = ""; return; }
         var url = detailUrl(item);
-        var img = item.image
-          ? '<img src="' + esc(item.image) + '" alt="" loading="lazy" onerror="this.remove()">'
-          : "";
+        var img = imgTag(item);
         spotEl.innerHTML =
           '<div class="live-spot-body">' +
           '<div class="live-spot-eyebrow">Spotlight find</div>' +
@@ -660,17 +695,70 @@
           (s.niches_active === 1 ? "" : "s") + " watched";
       }
 
-      function render(data) {
-        var items = (data && data.items) || [];
-        var meta = (data && data.meta) || {};
-        renderSpot(meta.featured || null);
-        renderStats(meta);
+      function renderSkeletons() {
+        var html = "";
+        for (var i = 0; i < 4; i++) {
+          html += '<div class="live-skel" aria-hidden="true"><div class="sk-img sk-shimmer"></div>' +
+            '<div class="sk-body"><div class="sk-line sk-shimmer" style="width:82%"></div>' +
+            '<div class="sk-line sk-shimmer" style="width:58%"></div>' +
+            '<div class="sk-line sk-shimmer" style="width:44%"></div></div></div>';
+        }
+        grid.innerHTML = html;
+      }
+
+      function renderFilters() {
+        var counts = {};
+        allItems.forEach(function (it) {
+          var n = it.niche || "Other";
+          counts[n] = (counts[n] || 0) + 1;
+        });
+        var niches = Object.keys(counts).sort();
+        if (niches.length < 2) {
+          filtersEl.hidden = true;
+          filtersEl.innerHTML = "";
+          activeFilter = "all";
+          return;
+        }
+        if (activeFilter !== "all" && !counts[activeFilter]) activeFilter = "all";
+        var html = '<button type="button" class="live-chip' + (activeFilter === "all" ? " active" : "") +
+          '" data-niche="all">All (' + allItems.length + ")</button>";
+        niches.forEach(function (n) {
+          html += '<button type="button" class="live-chip' + (activeFilter === n ? " active" : "") +
+            '" data-niche="' + esc(n) + '">' + esc(n) + " (" + counts[n] + ")</button>";
+        });
+        filtersEl.innerHTML = html;
+        filtersEl.hidden = false;
+      }
+      filtersEl.addEventListener("click", function (e) {
+        var btn = e.target && e.target.closest ? e.target.closest("[data-niche]") : null;
+        if (!btn) return;
+        activeFilter = btn.getAttribute("data-niche");
+        renderFilters();
+        renderGrid();
+      });
+
+      function renderGrid() {
+        var items = activeFilter === "all"
+          ? allItems
+          : allItems.filter(function (it) { return (it.niche || "Other") === activeFilter; });
         var html = items.map(card).join("");
-        if (!html) {
+        if (!html && activeFilter !== "all") {
+          grid.innerHTML = '<div class="live-empty">No finds in this niche right now — try All.</div>';
+        } else if (!html) {
           grid.innerHTML = '<div class="live-empty">The feed is warming up — the watcher is scanning marketplaces, check back soon.</div>';
         } else {
           grid.innerHTML = html;
         }
+      }
+
+      function render(data) {
+        var items = (data && data.items) || [];
+        var meta = (data && data.meta) || {};
+        allItems = items;
+        renderSpot(meta.featured || null);
+        renderStats(meta);
+        renderFilters();
+        renderGrid();
         if (data && data.generated_at) updatedEl.textContent = "Updated " + ago(data.generated_at);
         var n = meta.member_only_count || 0;
         if (n > 0) {
@@ -712,6 +800,7 @@
           });
       }
 
+      renderSkeletons();
       load();
       setInterval(load, REFRESH_MS);
       setInterval(tick, 60000);
