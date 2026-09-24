@@ -5,7 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" content="#0c3435" />
-  <link rel="icon" href="data:," />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d7773'/%3E%3Ccircle cx='14' cy='14' r='7' fill='none' stroke='white' stroke-width='3'/%3E%3Cpath d='M19.5 19.5L27 27' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <link rel="canonical" href="https://wantwatcher.com/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="WantWatcher" />
+  <meta property="og:url" content="https://wantwatcher.com/" />
+  <meta property="og:title" content="WantWatcher — Verified collector alerts" />
+  <meta property="og:description" content="A free live feed of verified vintage-tech and retro-gaming finds. Pro gets instant Discord alerts for C$8/mo — 3-day free trial, no card required." />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="WantWatcher — Verified collector alerts" />
+  <meta name="twitter:description" content="Free live feed of verified collector finds. Pro: instant Discord alerts, C$8/mo, 3-day free trial, no card." />
   <title>WantWatcher — Verified collector alerts</title>
   <meta name="description" content="Verified marketplace alerts for vintage tech and retro gaming collectors. Less scrolling, fewer mislabeled listings, better finds." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -24,6 +33,7 @@
       --teal-deep: #0c3435;
       --teal-soft: #d6ebe6;
       --orange: #ef8f2e;
+      --orange-ink: #a85a08;
       --orange-soft: #ffe4bd;
       --cream: #fff9ec;
       --shadow: 0 18px 45px rgba(16, 51, 51, .13);
@@ -43,6 +53,7 @@
         --teal-deep: #082e2f;
         --teal-soft: #173b3a;
         --orange: #f1a34f;
+        --orange-ink: #f1a34f;
         --orange-soft: #4c321b;
         --cream: #221f18;
         --shadow: 0 20px 50px rgba(0, 0, 0, .28);
@@ -61,6 +72,7 @@
     a { color: inherit; }
     button, input { font: inherit; }
     button { cursor: pointer; }
+    :focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; border-radius: 4px; }
     .wrap { width: min(1160px, calc(100% - 40px)); margin: 0 auto; }
     .nav {
       min-height: 68px;
@@ -535,9 +547,9 @@
       .live-price { font-size: 1.25rem; font-weight: 800; }
       .live-badge { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
       .live-badge.verified { color: var(--teal, #5fd4c4); border: 1px solid var(--teal, #5fd4c4); }
-      .live-badge.price_alert { color: var(--orange); border: 1px solid var(--orange); }
+      .live-badge.price_alert { color: var(--orange-ink); border: 1px solid var(--orange); }
       .live-meta { color: var(--muted); font-size: 0.85rem; }
-      .live-countdown { font-weight: 700; color: var(--orange); font-size: 0.9rem; }
+      .live-countdown { font-weight: 700; color: var(--orange-ink); font-size: 0.9rem; }
       .live-card .live-actions { margin-top: auto; display: flex; gap: 10px; }
       .live-card .live-actions .button-link { flex: 1; text-align: center; }
       .live-why-link { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); color: var(--teal); font-weight: 700; text-decoration: none; flex: 1; white-space: nowrap; }
@@ -547,7 +559,7 @@
       .live-spot { margin-top: 22px; border: 2px solid var(--orange); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface); display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); }
       .live-spot img { width: 100%; height: 100%; min-height: 230px; object-fit: cover; display: block; }
       .live-spot-body { padding: 26px; display: flex; flex-direction: column; gap: 10px; }
-      .live-spot-eyebrow { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--orange); }
+      .live-spot-eyebrow { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--orange-ink); }
       .live-spot h3 { margin: 0; font-size: 1.35rem; line-height: 1.3; }
       .live-spot h3 a { color: var(--ink); text-decoration: none; }
       .live-spot h3 a:hover { text-decoration: underline; }
@@ -611,7 +623,7 @@
       function card(item) {
         var badge = badgeHtml(item);
         var img = item.image
-          ? '<img src="' + esc(item.image) + '" alt="" loading="lazy" onerror="this.remove()">'
+          ? '<img src="' + esc(item.image) + '" alt="' + esc(item.title) + '" loading="lazy" onerror="this.remove()">'
           : "";
         var ends = "";
         if (item.ends_at) {
@@ -635,7 +647,7 @@
         if (!item) { spotEl.hidden = true; spotEl.innerHTML = ""; return; }
         var url = detailUrl(item);
         var img = item.image
-          ? '<img src="' + esc(item.image) + '" alt="" loading="lazy" onerror="this.remove()">'
+          ? '<img src="' + esc(item.image) + '" alt="' + esc(item.title) + '" loading="lazy" onerror="this.remove()">'
           : "";
         spotEl.innerHTML =
           '<div class="live-spot-body">' +

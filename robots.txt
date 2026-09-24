@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://wantwatcher.com/sitemap.xml
