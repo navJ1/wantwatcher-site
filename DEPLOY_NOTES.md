@@ -1,5 +1,43 @@
 # DEPLOY_NOTES.md
 
+## 2026-09-24 — neo-brutalist "drop" restyle (branch `redesign/brutalist-drop`, NOT merged)
+- Replaces the charcoal/glass look per owner feedback (too corporate / "SaaS-like").
+- New system, MSCHF / streetwear-drop / raw-terminal vibe: pitch-black `#000000`
+  background everywhere, harsh neon green `#00FF00` + safety orange `#FF5C00`
+  accents, `border-radius: 0` globally, hard 1-2px solid borders, zero transitions.
+- Typography: massive uppercase Inter 900 headers (slight vertical stretch on h1);
+  ALL data, prices, labels, buttons in JetBrains Mono (Google Fonts; no JS/icon CDNs).
+- Micro-interactions: instant color inversion on hover (black-on-neon, like old CLI);
+  blinking block cursors; a CSS-only marquee ticker
+  ("DROP 001 /// SWEEPS RUN EVERY 15 MINUTES /// ...").
+- Deal card rebuilt as a stamped technical readout: perforated neon edge,
+  barcode strip, exposed data fields `STATUS: LIVE`, `SRC: EBAY_RAW`, `ID: DMG-01`,
+  `BATCH: 0217`, `DROP #0217 // VERIFIED FIND` stamp, struck `$120.00`,
+  neon `$74.99`, orange `MARGIN: +38% BELOW MARKET` stamp, photos-not-inspected
+  disclaimer line. Still a static sample linking to `#live-finds`.
+- Hero canvas replaced: RETRO RADAR GRID particle system — rotating radar sweep with
+  fading trail, concentric range rings, crosshairs, range ticks, faint 56px grid,
+  drifting particles fluidly repelled by the cursor, and radar "blips" that ping
+  bright green (occasional orange "hot" blip) as the sweep passes, with expanding
+  ping rings. Corner targeting brackets + hard scanlines. Monochrome green-on-black.
+  Dependency-free inline JS, DPR capped at 2, pauses on `visibilitychange` +
+  IntersectionObserver, static single frame under `prefers-reduced-motion`.
+  Same `ww-canvas` ID.
+- Live feed cards (JS-rendered): sharp black cards, 1px borders, neon mono prices,
+  grayscale+contrast listing images, hover inverts whole card to neon instantly.
+- Restyled: index.html, dashboard.html, find.html, trial-thanks.html + favicons.
+  Untouched: all JS logic, Supabase/trial/Netlify-Form code, element IDs/classes,
+  function endpoints, tests.
+- Honesty copy preserved verbatim: no Facebook mentions, "Sweeps run every 15
+  minutes", photos-not-inspected disclaimers, "Flagged by automated checks",
+  $8 CAD/month, 3-day no-card trial, 8-hour feed delay.
+- Typography/cards fused with nothing.tech dot-matrix brutalism: footer `WANTWATCHER`
+  wordmark and section eyebrows render as dot-matrix text (CSS radial-gradient
+  background-clip:text); deal-card meta extended with exposed `ID`/`BATCH` fields.
+- Verified: `npm test` 71/71 green; all inline scripts parse under node; HTML
+  balanced on all four pages; index.html 74,017 bytes (limit 150KB); 44px touch
+  targets kept; no charcoal/glass tokens remain (`#090a0f`, `#d9b36c`, Space Grotesk).
+
 ## 2026-09-24 — Audit fixes: schema upgrades, honesty copy, live bugs, UX polish
 
 **Schema (supabase/schema.sql, supabase/migrations/002_alerts.sql) — run both in order:**
