@@ -1,5 +1,55 @@
 # DEPLOY_NOTES.md
 
+## 2026-09-24 — Visual overhaul: professional SaaS design system (UNCOMMITTED)
+
+**Design tokens (new, dark-first, applied to index.html, dashboard.html, find.html, trial-thanks.html):**
+- Palette: deep blues `--bg #0B1F3A` / `--surface #10294F`, charcoal `--char #14171C` /
+  `--char-2 #1C212B`, muted gold `--gold #C6A15B` accents. Green (`#1F9D55`) is used
+  ONLY for the "Verified" badge — nowhere else.
+- Typography: Space Grotesk (display) + Inter (body), 2 families via Google Fonts,
+  system fallbacks. Gold `:focus-visible` rings, AA body-text contrast on dark.
+- Favicon + theme-color updated to deep blue / gold; new inline-SVG brand mark
+  (magnifier) shared by all four pages. No external images, no icon CDNs, no libraries.
+
+**index.html:**
+- Sticky navbar with blur backdrop: brand mark + "WantWatcher" wordmark, links
+  (Live finds, Dashboard, gold "Start free trial" CTA). Mobile <900px still keeps
+  Live finds + Dashboard + CTA (nav-keep rule preserved).
+- Centered hero: "Never miss a rare find again." + subcopy + dual CTA
+  (gold trial / ghost feed) + trust points. Behind it, an interactive constellation
+  canvas: 7 inline-SVG line-art niche glyphs (vintage camera, sneaker, wristwatch,
+  game controller, headphones, vinyl, film camera) drifting with sine wobble;
+  cursor within 140px repels/glows/rotates icons; DPR capped at 2; 24 icons desktop
+  / 12 small screens; paused on visibilitychange + IntersectionObserver;
+  static faint arrangement under prefers-reduced-motion; pointermove covers touch.
+  Text sits above a radial scrim for readability. Dependency-free vanilla JS.
+- Feed cards redesigned: photo area with overlaid source badge (eBay = blue chip,
+  Kijiji = gold chip), green filled Verified badge + gold "↓ below market" cue
+  (verified only), emphasized display price, niche tag, "Found X ago", ghost/CTA
+  actions. Photo onerror fallback placeholder logic unchanged.
+- Spotlight card: gold-accent border, 2-col desktop, stacks to 1 col on phones;
+  keeps the "Flagged by automated checks — not a hands-on review." note.
+- Filter pills, skeleton loaders, teaser, stats restyled to the system.
+- Sections (how-it-works, verification case-file, niches, guides, pricing, FAQ,
+  footer) and the trial signup form all restyled; pricing keeps $8 CAD/mo,
+  3-day no-card trial, 8-hour delay copy.
+
+**dashboard.html / find.html / trial-thanks.html:** same token system, sticky blur
+header with brand mark; dashboard keeps all Supabase logic byte-identical (only the
+<style>, header, favicon, fonts link changed); find.html keeps separate
+network-error vs moved-on states and all honesty copy; trial-thanks keeps its copy
+with an inline-SVG check replacing the emoji.
+
+**Preserved (verified):** all element ids and JS-emitted classes (#live-finds,
+#live-spot, #live-grid, .live-badge.verified/.price_alert, wwImgFallback,
+find.html?id= links, dashboard queries, trial form name="trial-signup");
+all 2026-09-24 honesty copy (no Facebook mentions, 15-minute sweeps, photo
+disclaimer, spotlight note); mobile fixes; 44px touch targets.
+Tests: `npm test` 33/33 pass; all inline scripts parse; index.html ~61KB.
+
+**Note:** the user mentioned a brand-identity reference image, but none exists in
+the workspace — the palette above is per the brief; tune tokens if they share it.
+
 ## 2026-09-24 — Audit fixes: schema upgrades, honesty copy, live bugs, UX polish
 
 **Schema (supabase/schema.sql, supabase/migrations/002_alerts.sql) — run both in order:**
