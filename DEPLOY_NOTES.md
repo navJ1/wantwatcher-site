@@ -251,3 +251,8 @@ Notes:
   free, if you prefer those later.
 - Spam filtering: the form already has a honeypot (`netlify-honeypot`);
   enable Akismet in the same Forms settings screen if spam becomes a problem.
+
+## 2026-09-24 — visual overhaul reverted
+- Reverted the navy/gold redesign (e79dd61): owner found it empty/generic (dead navy space, muddy buttons, faint icons).
+- Live site restored to the pre-redesign build (5c12c69 + ENGINE_PLAN.md removal).
+- New charcoal/glass aesthetic being built in isolated worktree branch `redesign/charcoal-glass`; not merged to master.
