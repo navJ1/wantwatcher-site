@@ -106,6 +106,54 @@ function makeDiscordFetch({ member = null, putStatus = 204, deleteStatus = 204 }
   return { fetchImpl, calls };
 }
 
+/**
+ * Fetch stub for the paid path: routes Stripe checkout-session lookups to a
+ * canned session and Discord guild member search / role PUT to canned values.
+ * Records every call; throws on unexpected requests (including any touch of
+ * the trial Blobs store's endpoints — there are none, so the stub simply
+ * never fakes them).
+ */
+function makePaidFetch({
+  session = { id: "cs_123", payment_status: "paid" },
+  member = MEMBER,
+  searchStatus = 200,
+  putStatus = 204,
+} = {}) {
+  const calls = [];
+  const fetchImpl = async (url, opts = {}) => {
+    const method = (opts.method || "GET").toUpperCase();
+    calls.push({ url, method });
+    if (url.includes("api.stripe.com/v1/checkout/sessions/")) {
+      return fakeResp(200, session);
+    }
+    if (url.includes("/members/search")) {
+      if (searchStatus !== 200) return fakeResp(searchStatus, { message: "boom" });
+      return fakeResp(200, member ? [member] : []);
+    }
+    if (url.includes("/roles/") && method === "PUT") {
+      return fakeResp(putStatus, undefined);
+    }
+    throw new Error(`unexpected fetch: ${method} ${url}`);
+  };
+  return { fetchImpl, calls };
+}
+
+function paidEvent(extra = {}) {
+  return {
+    httpMethod: "POST",
+    body: JSON.stringify(
+      Object.assign({ session_id: "cs_123", discord_username: "Some.User" }, extra)
+    ),
+  };
+}
+
+/** The trial Blobs store must never be consulted on the paid path. */
+function mustNotTouchTrialStore() {
+  return async () => {
+    throw new Error("trial store must not be used on the paid path");
+  };
+}
+
 const MEMBER = { user: { id: "u1", username: "Some.User" }, roles: [] };
 
 // ------------------------------------------------------------- link-discord
@@ -319,6 +367,87 @@ describe("link-discord", () => {
     );
     assert.equal(res.statusCode, 502);
     assert.equal(bodyOf(res).error, "stripe_error");
+  });
+
+  it("paid: happy path grants pro role, never touches the trial store", async () => {
+    setEnv({ ...TRIAL_ENV, STRIPE_SECRET_KEY: "sk_test" });
+    const { fetchImpl, calls } = makePaidFetch();
+    const res = await linkDiscord(paidEvent(), {
+      fetchImpl,
+      getTrialStore: mustNotTouchTrialStore(),
+    });
+    assert.equal(res.statusCode, 200);
+    // Exact body: no expires_at leaks onto the paid path, and nothing extra.
+    assert.deepEqual(bodyOf(res), { ok: true, path: "paid", user_id: "u1" });
+    assert.ok(
+      calls.some(
+        (c) => c.method === "PUT" && c.url.includes("/roles/role-pro")
+      ),
+      "pro role granted via PUT"
+    );
+    assert.ok(
+      calls.some((c) =>
+        c.url.includes("api.stripe.com/v1/checkout/sessions/cs_123")
+      ),
+      "stripe session verified before touching Discord"
+    );
+    assert.ok(
+      !calls.some((c) => c.url.includes("trials")),
+      "no trial-store endpoints touched"
+    );
+  });
+
+  it("paid: session verified, but member already pro -> 409, no re-grant", async () => {
+    setEnv({ ...TRIAL_ENV, STRIPE_SECRET_KEY: "sk_test" });
+    const { fetchImpl, calls } = makePaidFetch({
+      member: {
+        user: { id: "u1", username: "Some.User" },
+        roles: ["role-pro"],
+      },
+    });
+    const res = await linkDiscord(paidEvent(), {
+      fetchImpl,
+      getTrialStore: mustNotTouchTrialStore(),
+    });
+    assert.equal(res.statusCode, 409);
+    assert.equal(bodyOf(res).error, "already_pro");
+    assert.ok(!calls.some((c) => c.method === "PUT"), "no PUT happened");
+  });
+
+  it("paid: user not in server -> 404, role never granted", async () => {
+    setEnv({ ...TRIAL_ENV, STRIPE_SECRET_KEY: "sk_test" });
+    const { fetchImpl, calls } = makePaidFetch({ member: null });
+    const res = await linkDiscord(paidEvent(), {
+      fetchImpl,
+      getTrialStore: mustNotTouchTrialStore(),
+    });
+    assert.equal(res.statusCode, 404);
+    assert.equal(bodyOf(res).error, "not_in_server");
+    assert.ok(!calls.some((c) => c.method === "PUT"), "no PUT happened");
+  });
+
+  it("paid: discord member search error -> 502 discord_error, no grant", async () => {
+    setEnv({ ...TRIAL_ENV, STRIPE_SECRET_KEY: "sk_test" });
+    const { fetchImpl, calls } = makePaidFetch({ searchStatus: 500 });
+    const res = await linkDiscord(paidEvent(), {
+      fetchImpl,
+      getTrialStore: mustNotTouchTrialStore(),
+    });
+    assert.equal(res.statusCode, 502);
+    assert.equal(bodyOf(res).error, "discord_error");
+    assert.ok(!calls.some((c) => c.method === "PUT"), "no PUT happened");
+  });
+
+  it("paid: role grant failure -> 502 discord_error, no false success", async () => {
+    setEnv({ ...TRIAL_ENV, STRIPE_SECRET_KEY: "sk_test" });
+    const { fetchImpl, calls } = makePaidFetch({ putStatus: 403 });
+    const res = await linkDiscord(paidEvent(), {
+      fetchImpl,
+      getTrialStore: mustNotTouchTrialStore(),
+    });
+    assert.equal(res.statusCode, 502);
+    assert.equal(bodyOf(res).error, "discord_error");
+    assert.ok(calls.some((c) => c.method === "PUT"), "grant was attempted");
   });
 });
 
